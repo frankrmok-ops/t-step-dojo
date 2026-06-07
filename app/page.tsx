@@ -7,15 +7,15 @@ import { Dashboard } from '@/components/dashboard'
 import { TrainingMode } from '@/components/training-mode'
 import { TrainingComplete } from '@/components/training-complete'
 import { AdminPanel } from '@/components/admin-panel'
-import { Supporters } from '@/components/supporters'
 
-type AppState = 'auth' | 'dashboard' | 'training' | 'loading' | 'complete' | 'supporters'
+type AppState = 'auth' | 'dashboard' | 'training' | 'loading' | 'complete'
 
 interface TrainingConfig {
   targetReps: number
   minSeconds: number
   maxSeconds: number
 }
+
 
 export default function Home() {
   const [appState, setAppState] = useState<AppState>('loading')
@@ -30,6 +30,7 @@ export default function Home() {
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null)
   const [showAdmin, setShowAdmin] = useState(false)
 
+  // Auto-login: check for existing active session on mount
   useEffect(() => {
     const existingProfile = getPlayerProfile()
     if (existingProfile) {
@@ -86,10 +87,7 @@ export default function Home() {
     setAppState('auth')
   }
 
-  const handleSupporters = () => {
-    setAppState('supporters')
-  }
-
+  // Loading state
   if (appState === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
@@ -110,7 +108,6 @@ export default function Home() {
           onStartTraining={handleStartTraining}
           onAdminClick={() => setShowAdmin(true)}
           onLogout={handleLogout}
-          onSupporters={handleSupporters}
         />
       )}
 
@@ -132,13 +129,6 @@ export default function Home() {
           previousBelt={previousBelt}
           videoBlob={videoBlob}
           onContinue={handleContinue}
-        />
-      )}
-
-      {appState === 'supporters' && profile && (
-        <Supporters
-          profile={profile}
-          onBack={() => setAppState('dashboard')}
         />
       )}
 
