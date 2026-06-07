@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { PlayerProfile, BELT_LABELS } from '../lib/storage'
+import { useState, useEffect } from 'react'
+import { PlayerProfile, BELT_LABELS, getAllDonations, Donation } from '../lib/storage'
 import { CrossedKatanas } from './crossed-katanas'
 import { TrainingCalendar } from './training-calendar'
 
@@ -10,9 +10,9 @@ interface DashboardProps {
   onStartTraining: (targetReps: number, minSeconds: number, maxSeconds: number) => void
   onAdminClick: () => void
   onLogout: () => void
+  onSupporters: () => void
 }
 
-// Compact dual plus/minus regulator component for mobile
 function DualRegulator({
   label,
   value,
@@ -26,15 +26,8 @@ function DualRegulator({
   min?: number
   max?: number
 }) {
-  const decrease = () => {
-    const newValue = Math.max(min, value - 1)
-    onChange(newValue)
-  }
-
-  const increase = () => {
-    const newValue = Math.min(max, value + 1)
-    onChange(newValue)
-  }
+  const decrease = () => onChange(Math.max(min, value - 1))
+  const increase = () => onChange(Math.min(max, value + 1))
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -60,27 +53,25 @@ function DualRegulator({
   )
 }
 
-export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout }: DashboardProps) {
+export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, onSupporters }: DashboardProps) {
   const [targetReps, setTargetReps] = useState(10)
   const [minSeconds, setMinSeconds] = useState(1)
   const [maxSeconds, setMaxSeconds] = useState(5)
+  const [donations, setDonations] = useState<Donation[]>([])
 
-  // Ensure min doesn't exceed max
+  useEffect(() => {
+    setDonations(getAllDonations())
+  }, [])
+
   const handleMinChange = (value: number) => {
     setMinSeconds(value)
-    if (value > maxSeconds) {
-      setMaxSeconds(value)
-    }
+    if (value > maxSeconds) setMaxSeconds(value)
   }
 
-  // Ensure max doesn't go below min
   const handleMaxChange = (value: number) => {
-    if (value >= minSeconds) {
-      setMaxSeconds(value)
-    }
+    if (value >= minSeconds) setMaxSeconds(value)
   }
 
-  // Reps change in steps of 5
   const decreaseReps = () => setTargetReps(Math.max(5, targetReps - 5))
   const increaseReps = () => setTargetReps(Math.min(100, targetReps + 5))
 
@@ -100,7 +91,6 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout }: 
             <button
               onClick={onLogout}
               className="rounded bg-zinc-800 px-2 py-1 text-[10px] text-zinc-400 hover:bg-zinc-700 hover:text-white"
-              title="Ausloggen"
             >
               Ausloggen
             </button>
@@ -118,7 +108,7 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout }: 
       <main className="mx-auto max-w-lg space-y-4 p-3">
         {/* Profile Card */}
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-white">{profile.name}</h2>
               <p className="text-xs text-zinc-400">{BELT_LABELS[profile.belt]}</p>
@@ -133,11 +123,24 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout }: 
           </div>
         </div>
 
-        {/* Training Configuration */}
+        {/* Supporter & Spende Banner */}
+        <button
+          onClick={onSupporters}
+          className="w-full rounded-lg border border-yellow-700/50 bg-gradient-to-r from-yellow-950/60 to-yellow-900/30 p-4 text-left hover:from-yellow-900/60 hover:to-yellow-800/40 active:opacity-90"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-base font-bold text-yellow-400">💛 Supporter & Spende</p>
+              <p className="text-xs text-zinc-400">Unterstütze das Dojo — 100% fließt in die Entwicklung</p>
+            </div>
+            <span className="text-xl">→</span>
+          </div>
+        </button>
+
+        {/* Training Config */}
         <div className="rounded-lg border border-red-900/50 bg-gradient-to-b from-red-950/20 to-zinc-900/50 p-3">
           <h3 className="mb-3 text-center text-xs font-bold text-red-500">Training konfigurieren</h3>
           
-          {/* Target Reps - Steps of 5 */}
           <div className="mb-3">
             <p className="mb-1 text-center text-[10px] text-zinc-400">Ziel Wiederholungen</p>
             <div className="flex items-center justify-center gap-2">
@@ -159,7 +162,6 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout }: 
             </div>
           </div>
 
-          {/* Time Window - Dual Regulators - Compact for mobile */}
           <div className="mb-3">
             <p className="mb-1 text-center text-[10px] text-zinc-400">Zufälliges Zeitfenster (1-10 Sek)</p>
             <div className="flex items-center justify-center gap-4">
@@ -180,7 +182,6 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout }: 
             </div>
           </div>
 
-          {/* Start Button */}
           <button
             onClick={() => onStartTraining(targetReps, minSeconds, maxSeconds)}
             className="w-full rounded-lg bg-gradient-to-r from-red-700 to-red-600 py-3 text-base font-bold text-white shadow-lg shadow-red-900/30 hover:from-red-600 hover:to-red-500 active:from-red-800 active:to-red-700"
@@ -189,7 +190,47 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout }: 
           </button>
         </div>
 
-        {/* Calendar */}
+        {/* Supporter Wall auf Dashboard */}
+        {donations.length > 0 && (
+          <div className="rounded-lg border border-yellow-900/30 bg-zinc-900/50 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-yellow-500">
+                🏆 Unsere Supporter
+              </h3>
+              <button
+                onClick={onSupporters}
+                className="text-[10px] text-zinc-500 hover:text-yellow-400"
+              >
+                Alle →
+              </button>
+            </div>
+            <div className="space-y-2">
+              {donations.slice(0, 5).map((donation, index) => (
+                <div
+                  key={donation.id}
+                  className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-900 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-yellow-600">#{index + 1}</span>
+                    <span className="text-sm font-bold text-white">
+                      {donation.isAnonymous ? '🥷 Anonym' : donation.name}
+                    </span>
+                    {donation.message && (
+                      <span className="text-xs text-zinc-500 truncate max-w-[100px]">
+                        „{donation.message}"
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm font-bold text-yellow-500">
+                    {donation.amount.toFixed(2)}€
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Kalender */}
         <TrainingCalendar profile={profile} />
       </main>
     </div>
