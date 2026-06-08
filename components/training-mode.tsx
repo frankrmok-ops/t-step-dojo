@@ -12,6 +12,8 @@ interface TrainingModeProps {
   onExit: () => void
 }
 
+type TrainingState = 'requesting' | 'waiting_tap' | 'positioning' | 'countdown' | 'training'
+
 export function TrainingMode({
   profile,
   targetReps,
@@ -20,14 +22,16 @@ export function TrainingMode({
   onComplete,
   onExit
 }: TrainingModeProps) {
+  const [trainingState, setTrainingState] = useState<TrainingState>('requesting')
+  const [positionTimer, setPositionTimer] = useState(10)
+  const [countdown, setCountdown] = useState(3)
   const [repsRemaining, setRepsRemaining] = useState(targetReps)
+  const [completedReps, setCompletedReps] = useState(0)
   const [showSquare, setShowSquare] = useState(false)
   const [isWaiting, setIsWaiting] = useState(true)
-  const [countdown, setCountdown] = useState(3)
-  const [isStarted, setIsStarted] = useState(false)
-  const [completedReps, setCompletedReps] = useState(0)
   const [motionDetected, setMotionDetected] = useState(false)
-  
+  const [cameraError, setCameraError] = useState('')
+
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const prevFrameRef = useRef<ImageData | null>(null)
@@ -38,32 +42,45 @@ export function TrainingMode({
   const animationFrameRef = useRef<number | null>(null)
   const triggerActiveRef = useRef(false)
   const motionCooldownRef = useRef(false)
+  const repsRemainingRef = useRef(targetReps)
+  const completedRepsRef = useRef(0)
 
-  // Motion detection threshold
   const MOTION_THRESHOLD = 30
-  const PIXEL_CHANGE_THRESHOLD = 0.03 // 3% of pixels must change
+  const PIXEL_CHANGE_THRESHOLD = 0.03
 
-  // Initialize camera and recording
+  // Piepton erzeugen
+  const playBeep = useCallback((frequency = 880, duration = 150) => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const oscillator = ctx.createOscillator()
+      const gainNode = ctx.createGain()
+      oscillator.connect(gainNode)
+      gainNode.connect(ctx.destination)
+      oscillator.frequency.value = frequency
+      oscillator.type = 'sine'
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration / 1000)
+      oscillator.start(ctx.currentTime)
+      oscillator.stop(ctx.currentTime + duration / 1000)
+    } catch (e) {
+      console.log('Audio nicht verfügbar')
+    }
+  }, [])
+
+  // Schritt 1: Kamera anfordern
   useEffect(() => {
     const initCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false
+          video: { facingMode: 'user' },
+          audio: true
         })
         streamRef.current = stream
         if (videoRef.current) {
           videoRef.current.srcObject = stream
         }
 
-        // Setup MediaRecorder for video recording - prefer mp4 for compatibility
-        const mimeTypes = [
-          'video/mp4',
-          'video/webm;codecs=h264',
-          'video/webm;codecs=vp9',
-          'video/webm'
-        ]
-        
+        const mimeTypes = ['video/mp4', 'video/webm;codecs=h264', 'video/webm;codecs=vp9', 'video/webm']
         let selectedMimeType = ''
         for (const mimeType of mimeTypes) {
           if (MediaRecorder.isTypeSupported(mimeType)) {
@@ -71,12 +88,9 @@ export function TrainingMode({
             break
           }
         }
+        if (!selectedMimeType) selectedMimeType = 'video/webm'
 
-        if (!selectedMimeType) {
-          selectedMimeType = 'video/webm'
-        }
-
-        const mediaRecorder = new MediaRecorder(stream, { 
+        const mediaRecorder = new MediaRecorder(stream, {
           mimeType: selectedMimeType,
           videoBitsPerSecond: 2500000
         })
@@ -89,49 +103,74 @@ export function TrainingMode({
           }
         }
 
-        // Start recording with timeslice for reliable data capture
         mediaRecorder.start(500)
+        setTrainingState('waiting_tap')
       } catch (err) {
-        console.log('[v0] Camera/Recording error:', err)
+        console.error('Kamera Fehler:', err)
+        setCameraError('Kamera oder Mikrofon konnte nicht gestartet werden. Bitte Berechtigung erteilen.')
       }
     }
     initCamera()
 
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop())
-      }
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop()
       }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
   }, [])
 
-  // Motion detection using pixel differencing
+  // Schritt 2: Tippen → 10 Sekunden Positionierungs-Timer
+  const handleTap = useCallback(() => {
+    if (trainingState !== 'waiting_tap') return
+    setTrainingState('positioning')
+    setPositionTimer(10)
+  }, [trainingState])
+
+  // Positionierungs-Countdown (10 Sekunden)
+  useEffect(() => {
+    if (trainingState !== 'positioning') return
+    if (positionTimer <= 0) {
+      setTrainingState('countdown')
+      setCountdown(3)
+      return
+    }
+    const timer = setTimeout(() => setPositionTimer(t => t - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [trainingState, positionTimer])
+
+  // 3-2-1 Countdown mit Piepton
+  useEffect(() => {
+    if (trainingState !== 'countdown') return
+    if (countdown <= 0) {
+      playBeep(1200, 300)
+      setTrainingState('training')
+      scheduleNextSquare()
+      return
+    }
+    playBeep(880, 150)
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [trainingState, countdown, playBeep])
+
+  // Motion detection
   const detectMotion = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return false
-    
     const video = videoRef.current
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    
     if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) return false
 
-    // Set canvas dimensions to match video
     canvas.width = 160
     canvas.height = 120
-
-    // Draw current frame (mirrored)
     ctx.save()
     ctx.scale(-1, 1)
     ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
     ctx.restore()
 
     const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    
     if (!prevFrameRef.current) {
       prevFrameRef.current = currentFrame
       return false
@@ -142,123 +181,38 @@ export function TrainingMode({
     let changedPixels = 0
     const totalPixels = canvas.width * canvas.height
 
-    // Compare pixels - check RGB difference
     for (let i = 0; i < currData.length; i += 4) {
       const rDiff = Math.abs(currData[i] - prevData[i])
       const gDiff = Math.abs(currData[i + 1] - prevData[i + 1])
       const bDiff = Math.abs(currData[i + 2] - prevData[i + 2])
-      
-      if (rDiff + gDiff + bDiff > MOTION_THRESHOLD * 3) {
-        changedPixels++
-      }
+      if (rDiff + gDiff + bDiff > MOTION_THRESHOLD * 3) changedPixels++
     }
 
     prevFrameRef.current = currentFrame
-    
-    const motionRatio = changedPixels / totalPixels
-    return motionRatio > PIXEL_CHANGE_THRESHOLD
+    return (changedPixels / totalPixels) > PIXEL_CHANGE_THRESHOLD
   }, [])
 
-  // Motion detection loop
-  useEffect(() => {
-    if (!isStarted || countdown > 0) return
-
-    const runDetection = () => {
-      const hasMotion = detectMotion()
-      setMotionDetected(hasMotion)
-
-      // If trigger is active and motion detected, count as hit
-      if (triggerActiveRef.current && hasMotion && !motionCooldownRef.current) {
-        motionCooldownRef.current = true
-        
-        const newRepsRemaining = repsRemaining - 1
-        const newCompletedReps = completedReps + 1
-        
-        setRepsRemaining(newRepsRemaining)
-        setCompletedReps(newCompletedReps)
-        setShowSquare(false)
-        triggerActiveRef.current = false
-
-        if (newRepsRemaining <= 0) {
-          // Training complete
-          completeTraining(newCompletedReps)
-        } else {
-          // Schedule next square after cooldown
-          setTimeout(() => {
-            motionCooldownRef.current = false
-            scheduleNextSquare()
-          }, 500)
-        }
-      }
-
-      animationFrameRef.current = requestAnimationFrame(runDetection)
-    }
-
-    animationFrameRef.current = requestAnimationFrame(runDetection)
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-    }
-  }, [isStarted, countdown, repsRemaining, completedReps, detectMotion])
-
-  // Complete training and save video
   const completeTraining = useCallback((finalReps: number) => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
-    }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
 
-    // Stop recording and compile video
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop()
       mediaRecorderRef.current.onstop = () => {
         const mimeType = mediaRecorderRef.current?.mimeType || 'video/webm'
         const videoBlob = new Blob(recordedChunksRef.current, { type: mimeType })
-        
-        const updatedProfile = addTrainingSession(
-          profile,
-          finalReps,
-          targetReps,
-          minSeconds,
-          maxSeconds
-        )
+        const updatedProfile = addTrainingSession(profile, finalReps, targetReps, minSeconds, maxSeconds)
         onComplete(updatedProfile, videoBlob)
       }
     } else {
-      const updatedProfile = addTrainingSession(
-        profile,
-        finalReps,
-        targetReps,
-        minSeconds,
-        maxSeconds
-      )
+      const updatedProfile = addTrainingSession(profile, finalReps, targetReps, minSeconds, maxSeconds)
       onComplete(updatedProfile, null)
     }
   }, [profile, targetReps, minSeconds, maxSeconds, onComplete])
 
-  // Countdown before start
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
-      return () => clearTimeout(timer)
-    } else if (countdown === 0 && !isStarted) {
-      setIsStarted(true)
-      scheduleNextSquare()
-    }
-  }, [countdown, isStarted])
-
-  // Schedule next red square appearance
   const scheduleNextSquare = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
     const delay = (minSeconds + Math.random() * (maxSeconds - minSeconds)) * 1000
-    
     setIsWaiting(true)
     setShowSquare(false)
     triggerActiveRef.current = false
@@ -270,130 +224,211 @@ export function TrainingMode({
     }, delay)
   }, [minSeconds, maxSeconds])
 
-  // Cleanup timeout on unmount
+  // Motion detection loop
   useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
+    if (trainingState !== 'training') return
+
+    const runDetection = () => {
+      const hasMotion = detectMotion()
+      setMotionDetected(hasMotion)
+
+      if (triggerActiveRef.current && hasMotion && !motionCooldownRef.current) {
+        motionCooldownRef.current = true
+
+        repsRemainingRef.current = repsRemainingRef.current - 1
+        completedRepsRef.current = completedRepsRef.current + 1
+
+        setRepsRemaining(repsRemainingRef.current)
+        setCompletedReps(completedRepsRef.current)
+        setShowSquare(false)
+        triggerActiveRef.current = false
+
+        if (repsRemainingRef.current <= 0) {
+          completeTraining(completedRepsRef.current)
+          return
+        }
+
+        setTimeout(() => {
+          motionCooldownRef.current = false
+          scheduleNextSquare()
+        }, 500)
       }
+
+      animationFrameRef.current = requestAnimationFrame(runDetection)
     }
-  }, [])
+
+    animationFrameRef.current = requestAnimationFrame(runDetection)
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
+    }
+  }, [trainingState, detectMotion, completeTraining, scheduleNextSquare])
 
   const nextBelt = getNextBelt(profile.belt)
   const repsToNext = getRepsToNextBelt(profile.totalReps)
-  const progressPercent = Math.min(100, ((targetReps - repsRemaining) / targetReps) * 100)
+  const progressPercent = Math.min(100, (completedReps / targetReps) * 100)
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center bg-black">
-      {/* Hidden canvas for motion detection */}
+    <div className="relative flex h-screen w-full flex-col bg-black overflow-hidden">
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Countdown overlay */}
-      {countdown > 0 && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90">
-          <p className="mb-4 text-xl text-zinc-400">Mach dich bereit!</p>
-          <div className="text-9xl font-bold text-red-600">{countdown}</div>
+      {/* Kamera — Vollbild */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ transform: 'scaleX(-1)' }}
+      />
+
+      {/* Dunkles Overlay */}
+      <div className="absolute inset-0 bg-black/30" />
+
+      {/* Kamera Fehler */}
+      {cameraError && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black p-6 text-center">
+          <p className="mb-2 text-4xl">📵</p>
+          <p className="mb-4 text-sm text-red-400">{cameraError}</p>
+          <button
+            onClick={onExit}
+            className="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-white"
+          >
+            Zurück
+          </button>
         </div>
       )}
 
-      {/* Top info bar */}
-      <div className="w-full bg-gradient-to-b from-black to-transparent p-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-bold text-red-500">T-Step DOJO</p>
-            <p className="text-xs text-zinc-500">{profile.name} - {BELT_LABELS[profile.belt]}</p>
+      {/* SCHRITT 1: Kamera lädt */}
+      {trainingState === 'requesting' && !cameraError && (
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/80">
+          <div className="animate-pulse text-4xl mb-4">📷</div>
+          <p className="text-white text-sm">Kamera wird gestartet...</p>
+        </div>
+      )}
+
+      {/* SCHRITT 2: Warte auf Tippen */}
+      {trainingState === 'waiting_tap' && (
+        <div
+          className="absolute inset-0 z-40 flex flex-col items-center justify-center"
+          onClick={handleTap}
+        >
+          <div className="rounded-2xl border border-white/20 bg-black/60 p-8 text-center mx-6">
+            <p className="text-5xl mb-4">👆</p>
+            <p className="text-xl font-bold text-white mb-2">Bereit?</p>
+            <p className="text-sm text-zinc-300 mb-1">Tippe auf den Bildschirm</p>
+            <p className="text-xs text-zinc-400">Du hast dann 10 Sekunden um dich zu positionieren</p>
           </div>
-          <button
-            onClick={onExit}
-            className="rounded border border-zinc-700 px-3 py-1 text-sm text-zinc-400 hover:bg-zinc-800"
-          >
-            Abbrechen
-          </button>
         </div>
-      </div>
+      )}
 
-      {/* Main content - vertically centered */}
-      <div className="flex flex-1 flex-col items-center justify-center px-4">
-        {/* Red Square Trigger - upper center */}
-        <div className="mb-6 flex h-24 w-24 items-center justify-center">
-          {showSquare ? (
-            <div className="h-20 w-20 animate-pulse rounded-lg bg-red-600 shadow-[0_0_60px_rgba(220,38,38,0.9)]" />
-          ) : (
-            <div className="h-20 w-20 rounded-lg border-2 border-dashed border-zinc-700" />
-          )}
-        </div>
-
-        {/* Camera preview with silhouette overlay - below red square */}
-        <div className="relative overflow-hidden rounded-xl border-2 border-red-600/50">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="h-52 w-40 bg-zinc-900 object-cover"
-            style={{ transform: 'scaleX(-1)' }}
-          />
-          
-          {/* Silhouette positioning guide overlay */}
-          <div className="pointer-events-none absolute inset-0">
-            {/* Head position circle */}
-            <div className="absolute left-1/2 top-4 h-10 w-10 -translate-x-1/2 rounded-full border-2 border-cyan-400/40" />
-            {/* Body outline */}
-            <div className="absolute left-1/2 top-14 h-28 w-16 -translate-x-1/2 rounded-t-full border-2 border-cyan-400/40" />
-            {/* Center crosshair */}
-            <div className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2">
-              <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-cyan-400/30" />
-              <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-cyan-400/30" />
+      {/* SCHRITT 3: 10 Sekunden Positionierung */}
+      {trainingState === 'positioning' && (
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="relative h-full w-full max-w-sm">
+              <div className="absolute left-1/2 top-[8%] h-16 w-16 -translate-x-1/2 rounded-full border-2 border-cyan-400/60" />
+              <div className="absolute left-1/2 top-[22%] h-[45%] w-32 -translate-x-1/2 rounded-t-3xl border-2 border-cyan-400/60" />
+              <div className="absolute left-[35%] top-[67%] h-[25%] w-10 border-2 border-cyan-400/60 rounded-b-lg" />
+              <div className="absolute left-[52%] top-[67%] h-[25%] w-10 border-2 border-cyan-400/60 rounded-b-lg" />
             </div>
-            {/* Corner guides */}
-            <div className="absolute left-2 top-2 h-4 w-4 border-l-2 border-t-2 border-cyan-400/50" />
-            <div className="absolute right-2 top-2 h-4 w-4 border-r-2 border-t-2 border-cyan-400/50" />
-            <div className="absolute bottom-2 left-2 h-4 w-4 border-b-2 border-l-2 border-cyan-400/50" />
-            <div className="absolute bottom-2 right-2 h-4 w-4 border-b-2 border-r-2 border-cyan-400/50" />
           </div>
-
-          {/* Recording indicator */}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 text-center text-xs text-red-400">
-            REC {isStarted ? '●' : '○'} {motionDetected && <span className="ml-2 text-green-400">Motion</span>}
+          <div className="absolute top-8 left-0 right-0 flex flex-col items-center">
+            <div className="rounded-2xl bg-black/70 px-6 py-3 text-center">
+              <p className="text-xs text-zinc-400 mb-1">Positioniere dich!</p>
+              <p className="text-6xl font-bold text-cyan-400">{positionTimer}</p>
+              <p className="text-xs text-zinc-400 mt-1">Sekunden</p>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Status text */}
-        <p className="mt-4 text-center text-sm text-zinc-500">
-          {isWaiting ? 'Warte auf das rote Quadrat...' : 'REAGIERE! Bewegung erkannt = Treffer!'}
-        </p>
-      </div>
-
-      {/* Bottom info bar */}
-      <div className="w-full bg-gradient-to-t from-black to-transparent p-4">
-        {/* Progress bar */}
-        <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-          <div
-            className="h-full rounded-full bg-red-600 transition-all duration-300"
-            style={{ width: `${progressPercent}%` }}
-          />
+      {/* SCHRITT 4: 3-2-1 Countdown */}
+      {trainingState === 'countdown' && (
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/70">
+          <p className="mb-4 text-lg text-zinc-300">Mach dich bereit!</p>
+          <div className="text-9xl font-bold text-red-500">{countdown}</div>
         </div>
+      )}
 
-        {/* Stats */}
-        <div className="flex items-center justify-between text-white">
-          <div className="text-center">
-            <p className="text-3xl font-bold text-red-500">{repsRemaining}</p>
-            <p className="text-xs text-zinc-500">Verbleibend</p>
+      {/* TRAINING AKTIV */}
+      {trainingState === 'training' && (
+        <>
+          <div className="absolute top-16 left-0 right-0 z-20 flex justify-center">
+            {showSquare ? (
+              <div className="h-24 w-24 animate-pulse rounded-2xl bg-red-600 shadow-[0_0_80px_rgba(220,38,38,1)]" />
+            ) : (
+              <div className="h-24 w-24 rounded-2xl border-2 border-dashed border-white/30" />
+            )}
           </div>
-          <div className="text-center">
-            <p className="text-3xl font-bold text-green-500">{completedReps}</p>
-            <p className="text-xs text-zinc-500">Abgeschlossen</p>
-          </div>
-          {nextBelt && (
-            <div className="text-center">
-              <p className="text-sm font-bold" style={{ color: BELT_COLORS[nextBelt] }}>
-                {Math.max(0, repsToNext - completedReps)}
+          <div className="absolute top-4 left-0 right-0 z-20 flex justify-center">
+            <div className="rounded-full bg-black/60 px-4 py-1">
+              <p className="text-xs text-zinc-300">
+                {isWaiting ? 'Warte...' : '⚡ REAGIERE!'}
               </p>
-              <p className="text-xs text-zinc-500">bis {BELT_LABELS[nextBelt]}</p>
             </div>
-          )}
+          </div>
+        </>
+      )}
+
+      {/* Header — Training aktiv */}
+      {trainingState === 'training' && (
+        <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between p-3 bg-gradient-to-b from-black/80 to-transparent">
+          <div>
+            <p className="text-xs font-bold text-red-500">T-Step DOJO</p>
+            <p className="text-[10px] text-zinc-400">{profile.name}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-red-400">● REC</span>
+            {motionDetected && <span className="text-[10px] text-green-400">Motion</span>}
+            <button
+              onClick={onExit}
+              className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-400"
+            >
+              ✕
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Bottom Stats */}
+      {trainingState === 'training' && (
+        <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 to-transparent p-4">
+          <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+            <div
+              className="h-full rounded-full bg-red-600 transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="text-center">
+              <p className="text-3xl font-bold text-red-500">{repsRemaining}</p>
+              <p className="text-[10px] text-zinc-500">Verbleibend</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-green-400">{completedReps}</p>
+              <p className="text-[10px] text-zinc-500">Gemacht</p>
+            </div>
+            {nextBelt && (
+              <div className="text-center">
+                <p className="text-sm font-bold" style={{ color: BELT_COLORS[nextBelt] }}>
+                  {Math.max(0, repsToNext - completedReps)}
+                </p>
+                <p className="text-[10px] text-zinc-500">bis {BELT_LABELS[nextBelt]}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Abbrechen Button */}
+      {trainingState !== 'training' && !cameraError && (
+        <button
+          onClick={onExit}
+          className="absolute bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-zinc-800/80 px-6 py-2 text-sm text-zinc-400"
+        >
+          Abbrechen
+        </button>
+      )}
     </div>
   )
 }
