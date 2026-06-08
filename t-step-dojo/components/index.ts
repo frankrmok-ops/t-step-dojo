@@ -1,8 +1,0 @@
-export { CrossedKatanas } from './crossed-katanas'
-export { ProgressBar, BeltRankings } from './progress-bar'
-export { AuthScreen } from './auth-screen'
-export { AdminPanel } from './admin-panel'
-export { Dashboard } from './dashboard'
-export { TrainingMode } from './training-mode'
-export { TrainingComplete } from './training-complete'
-export { TrainingCalendar } from './training-calendar'
