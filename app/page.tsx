@@ -7,15 +7,15 @@ import { Dashboard } from '@/components/dashboard'
 import { TrainingMode } from '@/components/training-mode'
 import { TrainingComplete } from '@/components/training-complete'
 import { AdminPanel } from '@/components/admin-panel'
+import { Supporters } from '@/components/supporters'
 
-type AppState = 'auth' | 'dashboard' | 'training' | 'loading' | 'complete'
+type AppState = 'auth' | 'dashboard' | 'training' | 'loading' | 'complete' | 'supporters'
 
 interface TrainingConfig {
   targetReps: number
   minSeconds: number
   maxSeconds: number
 }
-
 
 export default function Home() {
   const [appState, setAppState] = useState<AppState>('loading')
@@ -30,7 +30,6 @@ export default function Home() {
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null)
   const [showAdmin, setShowAdmin] = useState(false)
 
-  // Auto-login: check for existing active session on mount
   useEffect(() => {
     const existingProfile = getPlayerProfile()
     if (existingProfile) {
@@ -42,8 +41,7 @@ export default function Home() {
   }, [])
 
   const handleLogin = (newProfile: any) => {
-    const profileObj = newProfile as PlayerProfile
-    setProfile(profileObj)
+    setProfile(newProfile as PlayerProfile)
     setAppState('dashboard')
   }
 
@@ -87,7 +85,6 @@ export default function Home() {
     setAppState('auth')
   }
 
-  // Loading state
   if (appState === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
@@ -101,16 +98,15 @@ export default function Home() {
       {appState === 'auth' && (
         <AuthScreen onLogin={handleLogin} />
       )}
-
       {appState === 'dashboard' && profile && (
         <Dashboard
           profile={profile}
           onStartTraining={handleStartTraining}
           onAdminClick={() => setShowAdmin(true)}
           onLogout={handleLogout}
+          onSupportersClick={() => setAppState('supporters')}
         />
       )}
-
       {appState === 'training' && profile && (
         <TrainingMode
           profile={profile}
@@ -121,7 +117,6 @@ export default function Home() {
           onExit={handleExitTraining}
         />
       )}
-
       {appState === 'complete' && profile && (
         <TrainingComplete
           profile={profile}
@@ -131,7 +126,12 @@ export default function Home() {
           onContinue={handleContinue}
         />
       )}
-
+      {appState === 'supporters' && profile && (
+        <Supporters
+          profile={profile}
+          onBack={() => setAppState('dashboard')}
+        />
+      )}
       {showAdmin && (
         <AdminPanel
           profile={profile}
