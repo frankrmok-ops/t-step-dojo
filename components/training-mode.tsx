@@ -324,14 +324,7 @@ export function TrainingMode({
       {/* SCHRITT 3: 10 Sekunden Positionierung */}
       {trainingState === 'positioning' && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center pointer-events-none">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="relative h-full w-full max-w-sm">
-              <div className="absolute left-1/2 top-[8%] h-16 w-16 -translate-x-1/2 rounded-full border-2 border-cyan-400/60" />
-              <div className="absolute left-1/2 top-[22%] h-[45%] w-32 -translate-x-1/2 rounded-t-3xl border-2 border-cyan-400/60" />
-              <div className="absolute left-[35%] top-[67%] h-[25%] w-10 border-2 border-cyan-400/60 rounded-b-lg" />
-              <div className="absolute left-[52%] top-[67%] h-[25%] w-10 border-2 border-cyan-400/60 rounded-b-lg" />
-            </div>
-          </div>
+
           <div className="absolute top-8 left-0 right-0 flex flex-col items-center">
             <div className="rounded-2xl bg-black/70 px-6 py-3 text-center">
               <p className="text-xs text-zinc-400 mb-1">Positioniere dich!</p>
