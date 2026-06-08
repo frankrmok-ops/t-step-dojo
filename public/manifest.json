@@ -1,0 +1,18 @@
+{
+  "name": "T-Step DOJO",
+  "short_name": "T-Step",
+  "description": "American Football Koordinationstraining",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#DC143C",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
