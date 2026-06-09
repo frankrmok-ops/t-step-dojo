@@ -60,11 +60,9 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
   const [maxSeconds, setMaxSeconds] = useState(5)
   const [donations, setDonations] = useState<Donation[]>([])
 
-  useEffect(() => {
 useEffect(() => {
   getAllDonations().then(data => setDonations(data.slice(0, 5)))
-}, [])  }, [])
-
+}, [])
   const handleMinChange = (value: number) => {
     setMinSeconds(value)
     if (value > maxSeconds) setMaxSeconds(value)
