@@ -22,7 +22,7 @@ export function Supporters({ profile, onBack }: SupportersProps) {
   const [amountError, setAmountError] = useState('')
 
   useEffect(() => {
-    setDonations(getAllDonations())
+    getAllDonations().then(data => setDonations(data))
   }, [])
 
   const handlePayPal = () => {
@@ -30,7 +30,7 @@ export function Supporters({ profile, onBack }: SupportersProps) {
     setShowForm(true)
   }
 
-  const handleSubmitEntry = () => {
+  const handleSubmitEntry = async () => {
     setAmountError('')
     const parsedAmount = parseFloat(amount.replace(',', '.'))
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -38,7 +38,7 @@ export function Supporters({ profile, onBack }: SupportersProps) {
       return
     }
     if (!name.trim() && !isAnonymous) return
-    const donation = addDonation(
+    const donation = await addDonation(
       name.trim() || 'Anonym',
       parsedAmount,
       message.trim(),
@@ -102,7 +102,6 @@ export function Supporters({ profile, onBack }: SupportersProps) {
               Trag dich optional in die Supporter Wall ein:
             </p>
             <div className="space-y-3">
-              {/* Anonym Checkbox */}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -116,7 +115,6 @@ export function Supporters({ profile, onBack }: SupportersProps) {
                 </label>
               </div>
 
-              {/* Name */}
               {!isAnonymous && (
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Name</label>
@@ -130,7 +128,6 @@ export function Supporters({ profile, onBack }: SupportersProps) {
                 </div>
               )}
 
-              {/* Freier Betrag */}
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">
                   Gespendeter Betrag (€)
@@ -152,7 +149,6 @@ export function Supporters({ profile, onBack }: SupportersProps) {
                 )}
               </div>
 
-              {/* Nachricht */}
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">
                   Nachricht (optional)
@@ -176,7 +172,6 @@ export function Supporters({ profile, onBack }: SupportersProps) {
           </div>
         )}
 
-        {/* Erfolg */}
         {submitted && (
           <div className="rounded-lg border border-green-800 bg-green-950/30 p-3 text-center">
             <p className="text-sm font-bold text-green-400">

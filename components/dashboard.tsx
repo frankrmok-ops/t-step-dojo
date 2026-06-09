@@ -11,6 +11,7 @@ interface DashboardProps {
   onAdminClick: () => void
   onLogout: () => void
   onSupportersClick: () => void
+  onLeaderboardClick: () => void
 }
 
 function DualRegulator({
@@ -53,15 +54,16 @@ function DualRegulator({
   )
 }
 
-export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, onSupportersClick }: DashboardProps) {
+export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, onSupportersClick, onLeaderboardClick }: DashboardProps) {
   const [targetReps, setTargetReps] = useState(10)
   const [minSeconds, setMinSeconds] = useState(1)
   const [maxSeconds, setMaxSeconds] = useState(5)
   const [donations, setDonations] = useState<Donation[]>([])
 
   useEffect(() => {
-    setDonations(getAllDonations().slice(0, 5))
-  }, [])
+useEffect(() => {
+  getAllDonations().then(data => setDonations(data.slice(0, 5)))
+}, [])  }, [])
 
   const handleMinChange = (value: number) => {
     setMinSeconds(value)
@@ -123,24 +125,30 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
           </div>
         </div>
 
-        {/* Supporter Banner Button */}
-        <button
-          onClick={onSupportersClick}
-          className="w-full rounded-lg border border-yellow-900/50 bg-gradient-to-r from-yellow-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-yellow-950/60 active:from-yellow-950/80"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        {/* Supporter Banner + Rangliste — nebeneinander */}
+        <div className="flex gap-2">
+          <button
+            onClick={onSupportersClick}
+            className="flex-1 rounded-lg border border-yellow-900/50 bg-gradient-to-r from-yellow-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-yellow-950/60 active:from-yellow-950/80"
+          >
+            <div className="flex flex-col gap-1">
               <span className="text-xl">🏆</span>
-              <div>
-                <p className="text-sm font-bold text-yellow-400">DOJO Supporter werden</p>
-                <p className="text-[10px] text-zinc-400">100% der Spenden fließen ins Projekt</p>
-              </div>
+              <p className="text-sm font-bold text-yellow-400">Supporter</p>
+              <p className="text-[10px] text-zinc-400">100% ins Projekt</p>
             </div>
-            <span className="rounded bg-yellow-500/20 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
-              💛 Spenden ›
-            </span>
-          </div>
-        </button>
+          </button>
+
+          <button
+            onClick={onLeaderboardClick}
+            className="flex-1 rounded-lg border border-red-900/50 bg-gradient-to-r from-red-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-red-950/60 active:from-red-950/80"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-xl">🥇</span>
+              <p className="text-sm font-bold text-red-400">Rangliste</p>
+              <p className="text-[10px] text-zinc-400">Dein Rang ansehen</p>
+            </div>
+          </button>
+        </div>
 
         {/* Training Configuration */}
         <div className="rounded-lg border border-red-900/50 bg-gradient-to-b from-red-950/20 to-zinc-900/50 p-3">
@@ -195,12 +203,12 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
           </button>
         </div>
 
-        {/* Kalender — kompakter */}
+        {/* Kalender */}
         <div className="scale-[0.97] origin-top">
           <TrainingCalendar profile={profile} />
         </div>
 
-        {/* Mini Supporter Wall — immer sichtbar */}
+        {/* Mini Supporter Wall */}
         <div className="rounded-lg border border-yellow-900/30 bg-zinc-900/40 p-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-600">
@@ -248,7 +256,6 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
             </div>
           )}
 
-          {/* Danksagung */}
           <p className="mt-2 text-center text-[10px] text-zinc-600">
             Danke für eure Unterstützung! 🙏 100% fließt ins Projekt.
           </p>

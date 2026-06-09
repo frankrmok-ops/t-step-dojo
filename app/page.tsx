@@ -8,8 +8,9 @@ import { TrainingMode } from '@/components/training-mode'
 import { TrainingComplete } from '@/components/training-complete'
 import { AdminPanel } from '@/components/admin-panel'
 import { Supporters } from '@/components/supporters'
+import Leaderboard from '@/components/leaderboard'
 
-type AppState = 'auth' | 'dashboard' | 'training' | 'loading' | 'complete' | 'supporters'
+type AppState = 'auth' | 'dashboard' | 'training' | 'loading' | 'complete' | 'supporters' | 'leaderboard'
 
 interface TrainingConfig {
   targetReps: number
@@ -105,6 +106,7 @@ export default function Home() {
           onAdminClick={() => setShowAdmin(true)}
           onLogout={handleLogout}
           onSupportersClick={() => setAppState('supporters')}
+          onLeaderboardClick={() => setAppState('leaderboard')}
         />
       )}
       {appState === 'training' && profile && (
@@ -129,6 +131,12 @@ export default function Home() {
       {appState === 'supporters' && profile && (
         <Supporters
           profile={profile}
+          onBack={() => setAppState('dashboard')}
+        />
+      )}
+      {appState === 'leaderboard' && profile && (
+        <Leaderboard
+          currentUserId={profile.id}
           onBack={() => setAppState('dashboard')}
         />
       )}

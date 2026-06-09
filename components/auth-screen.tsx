@@ -10,7 +10,6 @@ interface AuthScreenProps {
 
 type AuthMode = 'login' | 'register' | 'forgot'
 
-// Eye icon component for password visibility toggle
 function EyeIcon({ visible }: { visible: boolean }) {
   if (visible) {
     return (
@@ -27,7 +26,6 @@ function EyeIcon({ visible }: { visible: boolean }) {
   )
 }
 
-// Password input with eye toggle
 function PasswordInput({
   id,
   value,
@@ -72,11 +70,9 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
   const [loading, setLoading] = useState(false)
   const [shake, setShake] = useState(false)
 
-  // Login form state
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
 
-  // Register form state
   const [regName, setRegName] = useState('')
   const [regTeam, setRegTeam] = useState('')
   const [regEmail, setRegEmail] = useState('')
@@ -85,7 +81,6 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
   const [regSecurityQuestion, setRegSecurityQuestion] = useState(SECURITY_QUESTIONS[0])
   const [regSecurityAnswer, setRegSecurityAnswer] = useState('')
 
-  // Forgot password state
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotStep, setForgotStep] = useState<'email' | 'answer' | 'newpass'>('email')
   const [forgotQuestion, setForgotQuestion] = useState('')
@@ -99,7 +94,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
     setTimeout(() => setShake(false), 500)
   }
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
@@ -111,8 +106,8 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
       return
     }
 
-    const result = loginUser(loginEmail.trim(), loginPassword)
-    
+    const result = await loginUser(loginEmail.trim(), loginPassword)
+
     if (result.success && result.profile) {
       onLogin(result.profile)
     } else {
@@ -122,12 +117,11 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
     setLoading(false)
   }
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
-    // Validate fields
     if (!regName.trim()) {
       setError('Athleten-Name ist erforderlich')
       triggerShake()
@@ -177,7 +171,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
       return
     }
 
-    const result = registerUser(
+    const result = await registerUser(
       regName.trim(),
       regTeam.trim(),
       regEmail.trim(),
@@ -185,7 +179,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
       regSecurityQuestion,
       regSecurityAnswer
     )
-    
+
     if (result.success && result.profile) {
       onLogin(result.profile)
     } else {
@@ -195,13 +189,13 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
     setLoading(false)
   }
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setSuccessMessage('')
 
     if (forgotStep === 'email') {
-      const result = getSecurityQuestion(forgotEmail.trim())
+      const result = await getSecurityQuestion(forgotEmail.trim())
       if (result.success && result.question) {
         setForgotQuestion(result.question)
         setForgotStep('answer')
@@ -233,7 +227,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         return
       }
 
-      const result = resetPassword(forgotEmail.trim(), forgotAnswer, forgotNewPassword)
+      const result = await resetPassword(forgotEmail.trim(), forgotAnswer, forgotNewPassword)
       if (result.success) {
         setSuccessMessage('Passwort erfolgreich geändert! Du kannst dich jetzt anmelden.')
         setTimeout(() => {
@@ -273,14 +267,12 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         }
       `}</style>
 
-      {/* Logo and title */}
       <div className="mb-6 flex flex-col items-center">
         <CrossedKatanas className="mb-3 h-16 w-16" />
         <h1 className="text-xl font-bold text-red-500">T-Step DOJO</h1>
         <p className="text-xs text-zinc-500">Reflex Training System</p>
       </div>
 
-      {/* Tab switcher - only for login/register */}
       {mode !== 'forgot' && (
         <div className="mb-4 flex w-full max-w-xs overflow-hidden rounded-lg border border-zinc-700">
           <button
@@ -306,7 +298,6 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         </div>
       )}
 
-      {/* Forgot password header */}
       {mode === 'forgot' && (
         <div className="mb-4 w-full max-w-xs">
           <button
@@ -327,7 +318,6 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         </div>
       )}
 
-      {/* Login Form */}
       {mode === 'login' && (
         <form onSubmit={handleLogin} className={`w-full max-w-xs space-y-3 ${shakeClass}`}>
           <div>
@@ -377,7 +367,6 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         </form>
       )}
 
-      {/* Register Form */}
       {mode === 'register' && (
         <form onSubmit={handleRegister} className={`w-full max-w-xs space-y-2.5 ${shakeClass}`}>
           <div>
@@ -447,7 +436,6 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
             />
           </div>
 
-          {/* Security Question */}
           <div>
             <label htmlFor="reg-security-q" className="mb-1 block text-xs text-zinc-400">
               Sicherheitsfrage *
@@ -490,7 +478,6 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         </form>
       )}
 
-      {/* Forgot Password Form */}
       {mode === 'forgot' && (
         <form onSubmit={handleForgotSubmit} className={`w-full max-w-xs space-y-3 ${shakeClass}`}>
           {forgotStep === 'email' && (
@@ -576,7 +563,6 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         </form>
       )}
 
-      {/* Decorative elements */}
       <div className="mt-8 text-center">
         <p className="text-[10px] text-zinc-600">
           &quot;Der Weg ist das Ziel&quot;

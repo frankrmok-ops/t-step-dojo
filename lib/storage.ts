@@ -1,4 +1,6 @@
-// Belt system constants - Exponential progression for 18,250 total reps (50/day for 365 days)
+import { supabase } from './supabase'
+
+// Belt system constants
 export type BeltLevel = 'white' | 'yellow' | 'orange' | 'green' | 'blue' | 'brown' | 'black'
 
 export const BELT_ORDER: BeltLevel[] = ['white', 'yellow', 'orange', 'green', 'blue', 'brown', 'black']
@@ -13,7 +15,6 @@ export const BELT_LABELS: Record<BeltLevel, string> = {
   black: 'Schwarzgurt'
 }
 
-// Exponential belt progression - early belts fast, higher belts harder
 export const BELT_THRESHOLDS: Record<BeltLevel, number> = {
   white: 0,
   yellow: 250,
@@ -66,12 +67,20 @@ export interface PlayerProfile {
   trainingHistory: TrainingSession[]
 }
 
-// Storage keys
-const USERS_KEY = 'tstep_dojo_users'
+export interface Donation {
+  id: string
+  name: string
+  amount: number
+  message: string
+  isAnonymous: boolean
+  date: string
+}
+
+// Storage keys (nur für Session)
 const ACTIVE_SESSION_KEY = 'tstep_dojo_active_session'
 const ADMIN_PIN = 'akaBlade2k.'
 
-// Simple hash function for password (not cryptographically secure, but sufficient for localStorage demo)
+// Einfache Hash-Funktion
 function simpleHash(str: string): string {
   let hash = 0
   for (let i = 0; i < str.length; i++) {
@@ -82,77 +91,119 @@ function simpleHash(str: string): string {
   return Math.abs(hash).toString(16)
 }
 
-// Generate unique ID
+// ID generieren
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2)
 }
 
-// Get all users from localStorage
-export function getAllUsers(): PlayerProfile[] {
-  if (typeof window === 'undefined') return []
-  const stored = localStorage.getItem(USERS_KEY)
-  if (!stored) return []
-  try {
-    return JSON.parse(stored)
-  } catch {
-    return []
-  }
-}
-
-// Save all users to localStorage
-function saveAllUsers(users: PlayerProfile[]): void {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-}
-
-// Get active session user ID
+// Session (bleibt localStorage)
 export function getActiveSessionId(): string | null {
   if (typeof window === 'undefined') return null
   return localStorage.getItem(ACTIVE_SESSION_KEY)
 }
 
-// Set active session
 export function setActiveSession(userId: string): void {
   if (typeof window === 'undefined') return
   localStorage.setItem(ACTIVE_SESSION_KEY, userId)
 }
 
-// Clear active session (logout)
 export function clearActiveSession(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem(ACTIVE_SESSION_KEY)
 }
 
-// Get currently logged in player profile
-export function getPlayerProfile(): PlayerProfile | null {
+// Hilfsfunktion: Supabase Row → PlayerProfile
+function rowToProfile(row: Record<string, unknown>): PlayerProfile {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    team: (row.team as string) || '',
+    email: row.email as string,
+    passwordHash: row.password_hash as string,
+    securityQuestion: (row.security_question as string) || '',
+    securityAnswer: (row.security_answer as string) || '',
+    totalReps: (row.total_reps as number) || 0,
+    belt: (row.belt as BeltLevel) || 'white',
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+    lastTrainingDate: (row.last_training_date as string) || new Date().toISOString(),
+    trainingHistory: (row.training_history as TrainingSession[]) || []
+  }
+}
+
+// Hilfsfunktion: PlayerProfile → Supabase Row
+function profileToRow(profile: PlayerProfile): Record<string, unknown> {
+  return {
+    id: profile.id,
+    name: profile.name,
+    team: profile.team,
+    email: profile.email,
+    password_hash: profile.passwordHash,
+    security_question: profile.securityQuestion,
+    security_answer: profile.securityAnswer,
+    total_reps: profile.totalReps,
+    belt: profile.belt,
+    created_at: profile.createdAt,
+    last_training_date: profile.lastTrainingDate,
+    training_history: profile.trainingHistory
+  }
+}
+
+// Aktuelles Profil laden
+export async function getPlayerProfileAsync(): Promise<PlayerProfile | null> {
   const activeId = getActiveSessionId()
   if (!activeId) return null
-  const users = getAllUsers()
-  return users.find(u => u.id === activeId) || null
+  const { data, error } = await supabase
+    .from('players')
+    .select('*')
+    .eq('id', activeId)
+    .single()
+  if (error || !data) return null
+  return rowToProfile(data)
 }
 
-// Find user by email
-export function findUserByEmail(email: string): PlayerProfile | null {
-  const users = getAllUsers()
-  return users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null
+// Synchrone Version (für Komponenten die noch nicht async sind)
+export function getPlayerProfile(): PlayerProfile | null {
+  if (typeof window === 'undefined') return null
+  const cached = localStorage.getItem('tstep_dojo_profile_cache')
+  if (!cached) return null
+  try {
+    return JSON.parse(cached)
+  } catch {
+    return null
+  }
 }
 
-// Register new user
-export function registerUser(
+// Cache speichern
+export function cacheProfile(profile: PlayerProfile): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem('tstep_dojo_profile_cache', JSON.stringify(profile))
+}
+
+// Profil suchen nach Email
+export async function findUserByEmail(email: string): Promise<PlayerProfile | null> {
+  const { data, error } = await supabase
+    .from('players')
+    .select('*')
+    .eq('email', email.toLowerCase())
+    .single()
+  if (error || !data) return null
+  return rowToProfile(data)
+}
+
+// Registrierung
+export async function registerUser(
   name: string,
   team: string,
   email: string,
   password: string,
   securityQuestion: string = SECURITY_QUESTIONS[0],
   securityAnswer: string = ''
-): { success: boolean; error?: string; profile?: PlayerProfile } {
-  const users = getAllUsers()
-  
-  // Check if email already exists
-  if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+): Promise<{ success: boolean; error?: string; profile?: PlayerProfile }> {
+  const existing = await findUserByEmail(email)
+  if (existing) {
     return { success: false, error: 'Diese E-Mail ist bereits registriert' }
   }
-  
+
   const profile: PlayerProfile = {
     id: generateId(),
     name,
@@ -167,108 +218,124 @@ export function registerUser(
     lastTrainingDate: new Date().toISOString(),
     trainingHistory: []
   }
-  
-  users.push(profile)
-  saveAllUsers(users)
+
+  const { error } = await supabase.from('players').insert(profileToRow(profile))
+  if (error) {
+    return { success: false, error: 'Fehler beim Registrieren: ' + error.message }
+  }
+
   setActiveSession(profile.id)
-  
+  cacheProfile(profile)
   return { success: true, profile }
 }
 
-// Login user
-export function loginUser(
+// Login
+export async function loginUser(
   email: string,
   password: string
-): { success: boolean; error?: string; profile?: PlayerProfile } {
-  const user = findUserByEmail(email)
-  
+): Promise<{ success: boolean; error?: string; profile?: PlayerProfile }> {
+  const user = await findUserByEmail(email)
   if (!user) {
     return { success: false, error: 'E-Mail nicht gefunden' }
   }
-  
   if (user.passwordHash !== simpleHash(password)) {
     return { success: false, error: 'Falsches Passwort' }
   }
-  
   setActiveSession(user.id)
+  cacheProfile(user)
   return { success: true, profile: user }
 }
 
-// Logout user
+// Logout
 export function logoutUser(): void {
   clearActiveSession()
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('tstep_dojo_profile_cache')
+  }
 }
 
-// Verify security answer and reset password
-export function resetPassword(
+// Passwort zurücksetzen
+export async function resetPassword(
   email: string,
   securityAnswer: string,
   newPassword: string
-): { success: boolean; error?: string } {
-  const users = getAllUsers()
-  const userIndex = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase())
-  
-  if (userIndex === -1) {
-    return { success: false, error: 'E-Mail nicht gefunden' }
-  }
-  
-  const user = users[userIndex]
-  
+): Promise<{ success: boolean; error?: string }> {
+  const user = await findUserByEmail(email)
+  if (!user) return { success: false, error: 'E-Mail nicht gefunden' }
   if (user.securityAnswer !== securityAnswer.toLowerCase().trim()) {
     return { success: false, error: 'Sicherheitsantwort ist falsch' }
   }
-  
-  users[userIndex] = {
-    ...user,
-    passwordHash: simpleHash(newPassword)
-  }
-  
-  saveAllUsers(users)
+  const { error } = await supabase
+    .from('players')
+    .update({ password_hash: simpleHash(newPassword) })
+    .eq('id', user.id)
+  if (error) return { success: false, error: 'Fehler beim Zurücksetzen' }
   return { success: true }
 }
 
-// Get user security question by email
-export function getSecurityQuestion(email: string): { success: boolean; question?: string; error?: string } {
-  const user = findUserByEmail(email)
-  if (!user) {
-    return { success: false, error: 'E-Mail nicht gefunden' }
-  }
+// Sicherheitsfrage laden
+export async function getSecurityQuestion(
+  email: string
+): Promise<{ success: boolean; question?: string; error?: string }> {
+  const user = await findUserByEmail(email)
+  if (!user) return { success: false, error: 'E-Mail nicht gefunden' }
   return { success: true, question: user.securityQuestion }
 }
 
-// Save/update player profile
-export function savePlayerProfile(profile: PlayerProfile): void {
-  if (typeof window === 'undefined') return
-  const users = getAllUsers()
-  const index = users.findIndex(u => u.id === profile.id)
-  if (index !== -1) {
-    users[index] = profile
-    saveAllUsers(users)
+// Profil speichern
+export async function savePlayerProfile(profile: PlayerProfile): Promise<void> {
+  const { error } = await supabase
+    .from('players')
+    .update(profileToRow(profile))
+    .eq('id', profile.id)
+  if (!error) cacheProfile(profile)
+}
+
+// Training hinzufügen
+export async function addTrainingSession(
+  profile: PlayerProfile,
+  reps: number,
+  targetReps: number,
+  minSeconds: number,
+  maxSeconds: number,
+  videoUrl?: string
+): Promise<PlayerProfile> {
+  const session: TrainingSession = {
+    date: new Date().toISOString(),
+    reps,
+    targetReps,
+    minSeconds,
+    maxSeconds,
+    videoUrl
   }
+
+  const newTotalReps = profile.totalReps + reps
+  const newBelt = getBeltForReps(newTotalReps)
+
+  const updatedProfile: PlayerProfile = {
+    ...profile,
+    totalReps: newTotalReps,
+    belt: newBelt,
+    lastTrainingDate: new Date().toISOString(),
+    trainingHistory: [...profile.trainingHistory, session]
+  }
+
+  await savePlayerProfile(updatedProfile)
+  return updatedProfile
 }
 
-// Legacy function for compatibility - now creates with default values
-export function createPlayerProfile(name: string): PlayerProfile {
-  const result = registerUser(name, '', `${name.toLowerCase().replace(/\s/g, '')}@local.dojo`, 'default123')
-  return result.profile!
-}
-
-// Clear specific player profile (admin function)
-export function clearPlayerProfile(): void {
+// Profil löschen (Admin)
+export async function clearPlayerProfile(): Promise<void> {
   const activeId = getActiveSessionId()
   if (!activeId) return
-  
-  const users = getAllUsers()
-  const filtered = users.filter(u => u.id !== activeId)
-  saveAllUsers(filtered)
-  clearActiveSession()
+  await supabase.from('players').delete().eq('id', activeId)
+  logoutUser()
 }
 
-// Clear all users (admin function)
-export function clearAllUsers(): void {
-  if (typeof window === 'undefined') return
-  localStorage.removeItem(USERS_KEY)
-  clearActiveSession()
+// Alle User löschen (Admin)
+export async function clearAllUsers(): Promise<void> {
+  await supabase.from('players').delete().neq('id', '')
+  logoutUser()
 }
 
 export function verifyAdminPin(pin: string): boolean {
@@ -300,76 +367,44 @@ export function getRepsToNextBelt(totalReps: number): number {
   return BELT_THRESHOLDS[nextBelt] - totalReps
 }
 
-export function addTrainingSession(
-  profile: PlayerProfile,
-  reps: number,
-  targetReps: number,
-  minSeconds: number,
-  maxSeconds: number,
-  videoUrl?: string
-): PlayerProfile {
-  const session: TrainingSession = {
-    date: new Date().toISOString(),
-    reps,
-    targetReps,
-    minSeconds,
-    maxSeconds,
-    videoUrl
-  }
-  
-  const newTotalReps = profile.totalReps + reps
-  const newBelt = getBeltForReps(newTotalReps)
-  
-  const updatedProfile: PlayerProfile = {
-    ...profile,
-    totalReps: newTotalReps,
-    belt: newBelt,
-    lastTrainingDate: new Date().toISOString(),
-    trainingHistory: [...profile.trainingHistory, session]
-  }
-  
-  savePlayerProfile(updatedProfile)
-  return updatedProfile
-}
-// Donations
-const DONATIONS_KEY = 'tstep_dojo_donations'
-
-export interface Donation {
-  id: string
-  name: string
-  amount: number
-  message: string
-  isAnonymous: boolean
-  date: string
+// Donations — Supabase
+export async function getAllDonations(): Promise<Donation[]> {
+  const { data, error } = await supabase
+    .from('donations')
+    .select('*')
+    .order('date', { ascending: false })
+  if (error || !data) return []
+  return data.map((d: Record<string, unknown>) => ({
+    id: d.id as string,
+    name: (d.name as string) || 'Anonym',
+    amount: d.amount as number,
+    message: (d.message as string) || '',
+    isAnonymous: d.is_anonymous as boolean,
+    date: d.date as string
+  }))
 }
 
-export function getAllDonations(): Donation[] {
-  if (typeof window === 'undefined') return []
-  const stored = localStorage.getItem(DONATIONS_KEY)
-  if (!stored) return []
-  try {
-    return JSON.parse(stored)
-  } catch {
-    return []
-  }
-}
-
-export function addDonation(
+export async function addDonation(
   name: string,
   amount: number,
   message: string,
   isAnonymous: boolean
-): Donation {
-  const donation: Donation = {
-    id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+): Promise<Donation> {
+  const donation = {
+    id: generateId(),
     name: isAnonymous ? 'Anonym' : name,
     amount,
     message,
-    isAnonymous,
+    is_anonymous: isAnonymous,
     date: new Date().toISOString()
   }
-  const donations = getAllDonations()
-  donations.unshift(donation)
-  localStorage.setItem(DONATIONS_KEY, JSON.stringify(donations))
-  return donation
+  await supabase.from('donations').insert(donation)
+  return {
+    id: donation.id,
+    name: donation.name,
+    amount: donation.amount,
+    message: donation.message,
+    isAnonymous: isAnonymous,
+    date: donation.date
+  }
 }
