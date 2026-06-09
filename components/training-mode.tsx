@@ -48,7 +48,6 @@ export function TrainingMode({
   const MOTION_THRESHOLD = 30
   const PIXEL_CHANGE_THRESHOLD = 0.03
 
-  // Piepton erzeugen
   const playBeep = useCallback((frequency = 880, duration = 150) => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -67,7 +66,6 @@ export function TrainingMode({
     }
   }, [])
 
-  // Schritt 1: Kamera anfordern
   useEffect(() => {
     const initCamera = async () => {
       try {
@@ -122,14 +120,12 @@ export function TrainingMode({
     }
   }, [])
 
-  // Schritt 2: Tippen → 10 Sekunden Positionierungs-Timer
   const handleTap = useCallback(() => {
     if (trainingState !== 'waiting_tap') return
     setTrainingState('positioning')
     setPositionTimer(10)
   }, [trainingState])
 
-  // Positionierungs-Countdown (10 Sekunden)
   useEffect(() => {
     if (trainingState !== 'positioning') return
     if (positionTimer <= 0) {
@@ -141,7 +137,6 @@ export function TrainingMode({
     return () => clearTimeout(timer)
   }, [trainingState, positionTimer])
 
-  // 3-2-1 Countdown mit Piepton
   useEffect(() => {
     if (trainingState !== 'countdown') return
     if (countdown <= 0) {
@@ -155,7 +150,6 @@ export function TrainingMode({
     return () => clearTimeout(timer)
   }, [trainingState, countdown, playBeep])
 
-  // Motion detection
   const detectMotion = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return false
     const video = videoRef.current
@@ -192,20 +186,20 @@ export function TrainingMode({
     return (changedPixels / totalPixels) > PIXEL_CHANGE_THRESHOLD
   }, [])
 
-  const completeTraining = useCallback((finalReps: number) => {
+  const completeTraining = useCallback(async (finalReps: number) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop()
-      mediaRecorderRef.current.onstop = () => {
+      mediaRecorderRef.current.onstop = async () => {
         const mimeType = mediaRecorderRef.current?.mimeType || 'video/webm'
         const videoBlob = new Blob(recordedChunksRef.current, { type: mimeType })
-        const updatedProfile = addTrainingSession(profile, finalReps, targetReps, minSeconds, maxSeconds)
+        const updatedProfile = await addTrainingSession(profile, finalReps, targetReps, minSeconds, maxSeconds)
         onComplete(updatedProfile, videoBlob)
       }
     } else {
-      const updatedProfile = addTrainingSession(profile, finalReps, targetReps, minSeconds, maxSeconds)
+      const updatedProfile = await addTrainingSession(profile, finalReps, targetReps, minSeconds, maxSeconds)
       onComplete(updatedProfile, null)
     }
   }, [profile, targetReps, minSeconds, maxSeconds, onComplete])
@@ -224,24 +218,23 @@ export function TrainingMode({
     }, delay)
   }, [minSeconds, maxSeconds])
 
-  // Motion detection loop
   useEffect(() => {
     if (trainingState !== 'training') return
 
-    const runDetection = () => {
+    const loop = () => {
       const hasMotion = detectMotion()
       setMotionDetected(hasMotion)
 
-      if (triggerActiveRef.current && hasMotion && !motionCooldownRef.current) {
+      if (hasMotion && triggerActiveRef.current && !motionCooldownRef.current) {
         motionCooldownRef.current = true
-
-        repsRemainingRef.current = repsRemainingRef.current - 1
-        completedRepsRef.current = completedRepsRef.current + 1
-
-        setRepsRemaining(repsRemainingRef.current)
-        setCompletedReps(completedRepsRef.current)
-        setShowSquare(false)
         triggerActiveRef.current = false
+        playBeep(1000, 100)
+
+        completedRepsRef.current += 1
+        repsRemainingRef.current = Math.max(0, repsRemainingRef.current - 1)
+
+        setCompletedReps(completedRepsRef.current)
+        setRepsRemaining(repsRemainingRef.current)
 
         if (repsRemainingRef.current <= 0) {
           completeTraining(completedRepsRef.current)
@@ -250,177 +243,148 @@ export function TrainingMode({
 
         setTimeout(() => {
           motionCooldownRef.current = false
-          scheduleNextSquare()
-        }, 500)
+        }, 800)
+
+        scheduleNextSquare()
       }
 
-      animationFrameRef.current = requestAnimationFrame(runDetection)
+      animationFrameRef.current = requestAnimationFrame(loop)
     }
 
-    animationFrameRef.current = requestAnimationFrame(runDetection)
+    animationFrameRef.current = requestAnimationFrame(loop)
+
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
     }
-  }, [trainingState, detectMotion, completeTraining, scheduleNextSquare])
+  }, [trainingState, detectMotion, playBeep, scheduleNextSquare, completeTraining])
 
-  const nextBelt = getNextBelt(profile.belt)
+  const handleAbbrechen = () => {
+    completeTraining(completedRepsRef.current)
+  }
+
+  const currentBelt = profile.belt
+  const nextBelt = getNextBelt(currentBelt)
   const repsToNext = getRepsToNextBelt(profile.totalReps)
-  const progressPercent = Math.min(100, (completedReps / targetReps) * 100)
 
   return (
-    <div className="relative flex h-screen w-full flex-col bg-black overflow-hidden">
-      <canvas ref={canvasRef} className="hidden" />
-
-      {/* Kamera — Vollbild */}
+    <div className="relative h-screen w-screen overflow-hidden bg-black select-none">
+      {/* Kamera-Feed */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        className="absolute inset-0 h-full w-full object-cover"
-        style={{ transform: 'scaleX(-1)' }}
+        className="absolute inset-0 h-full w-full object-cover scale-x-[-1]"
       />
+      <canvas ref={canvasRef} className="hidden" />
 
-      {/* Dunkles Overlay */}
-      <div className="absolute inset-0 bg-black/30" />
+      {/* ZUSTAND: Kamera wird angefragt */}
+      {trainingState === 'requesting' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 px-6 text-center z-50">
+          <div className="text-5xl mb-4">📷</div>
+          <h2 className="text-white text-2xl font-bold mb-2">Kamera wird gestartet…</h2>
+          <p className="text-zinc-400 text-sm">Bitte Kamera & Mikrofon erlauben</p>
+        </div>
+      )}
 
-      {/* Kamera Fehler */}
-      {cameraError && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black p-6 text-center">
-          <p className="mb-2 text-4xl">📵</p>
-          <p className="mb-4 text-sm text-red-400">{cameraError}</p>
+      {/* ZUSTAND: Kamera Fehler */}
+      {cameraError !== '' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 px-6 text-center z-50">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h2 className="text-white text-xl font-bold mb-2">Kamera-Fehler</h2>
+          <p className="text-zinc-400 text-sm mb-6">{cameraError}</p>
           <button
             onClick={onExit}
-            className="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-white"
+            className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold"
           >
             Zurück
           </button>
         </div>
       )}
 
-      {/* SCHRITT 1: Kamera lädt */}
-      {trainingState === 'requesting' && !cameraError && (
-        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/80">
-          <div className="animate-pulse text-4xl mb-4">📷</div>
-          <p className="text-white text-sm">Kamera wird gestartet...</p>
-        </div>
-      )}
-
-      {/* SCHRITT 2: Warte auf Tippen */}
+      {/* ZUSTAND: Tippen zum Starten */}
       {trainingState === 'waiting_tap' && (
         <div
-          className="absolute inset-0 z-40 flex flex-col items-center justify-center"
+          className="absolute inset-0 flex flex-col items-center justify-center z-40"
           onClick={handleTap}
         >
-          <div className="rounded-2xl border border-white/20 bg-black/60 p-8 text-center mx-6">
-            <p className="text-5xl mb-4">👆</p>
-            <p className="text-xl font-bold text-white mb-2">Bereit?</p>
-            <p className="text-sm text-zinc-300 mb-1">Tippe auf den Bildschirm</p>
-            <p className="text-xs text-zinc-400">Du hast dann 10 Sekunden um dich zu positionieren</p>
-          </div>
-        </div>
-      )}
-
-      {/* SCHRITT 3: 10 Sekunden Positionierung */}
-      {trainingState === 'positioning' && (
-        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center pointer-events-none">
-
-          <div className="absolute top-8 left-0 right-0 flex flex-col items-center">
-            <div className="rounded-2xl bg-black/70 px-6 py-3 text-center">
-              <p className="text-xs text-zinc-400 mb-1">Positioniere dich!</p>
-              <p className="text-6xl font-bold text-cyan-400">{positionTimer}</p>
-              <p className="text-xs text-zinc-400 mt-1">Sekunden</p>
+          <div className="bg-black/60 rounded-2xl px-8 py-6 text-center">
+            <div className="text-5xl mb-3">🥋</div>
+            <h2 className="text-white text-2xl font-bold mb-1">Bereit?</h2>
+            <p className="text-zinc-300 text-sm mb-4">Tippe um zu starten</p>
+            <div className="text-zinc-400 text-xs">
+              Ziel: <span className="text-white font-bold">{targetReps} Reps</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* SCHRITT 4: 3-2-1 Countdown */}
-      {trainingState === 'countdown' && (
-        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/70">
-          <p className="mb-4 text-lg text-zinc-300">Mach dich bereit!</p>
-          <div className="text-9xl font-bold text-red-500">{countdown}</div>
+      {/* ZUSTAND: Positionierung (10 Sek) */}
+      {trainingState === 'positioning' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-40">
+          <div className="bg-black/70 rounded-2xl px-8 py-6 text-center">
+            <p className="text-zinc-300 text-sm mb-2">Positioniere dich!</p>
+            <div className="text-white text-7xl font-black">{positionTimer}</div>
+            <p className="text-zinc-400 text-xs mt-2">Sekunden bis zum Start</p>
+          </div>
         </div>
       )}
 
-      {/* TRAINING AKTIV */}
+      {/* ZUSTAND: 3-2-1 Countdown */}
+      {trainingState === 'countdown' && (
+        <div className="absolute inset-0 flex items-center justify-center z-40">
+          <div className="text-white font-black drop-shadow-lg" style={{ fontSize: '20vw' }}>
+            {countdown}
+          </div>
+        </div>
+      )}
+
+      {/* ZUSTAND: Training läuft */}
       {trainingState === 'training' && (
         <>
-          <div className="absolute top-16 left-0 right-0 z-20 flex justify-center">
-            {showSquare ? (
-              <div className="h-24 w-24 animate-pulse rounded-2xl bg-red-600 shadow-[0_0_80px_rgba(220,38,38,1)]" />
-            ) : (
-              <div className="h-24 w-24 rounded-2xl border-2 border-dashed border-white/30" />
-            )}
-          </div>
-          <div className="absolute top-4 left-0 right-0 z-20 flex justify-center">
-            <div className="rounded-full bg-black/60 px-4 py-1">
-              <p className="text-xs text-zinc-300">
-                {isWaiting ? 'Warte...' : '⚡ REAGIERE!'}
-              </p>
+          {/* Reps Anzeige oben */}
+          <div className="absolute top-0 left-0 right-0 z-30 flex justify-between items-center px-4 pt-safe-top pt-4">
+            <div className="bg-black/60 rounded-xl px-3 py-2 text-center">
+              <div className="text-zinc-400 text-xs">Erledigt</div>
+              <div className="text-white text-2xl font-black">{completedReps}</div>
+            </div>
+            <div className="bg-black/60 rounded-xl px-3 py-2 text-center">
+              <div className="text-zinc-400 text-xs">Verbleibend</div>
+              <div className="text-red-500 text-2xl font-black">{repsRemaining}</div>
             </div>
           </div>
-        </>
-      )}
 
-      {/* Header — Training aktiv */}
-      {trainingState === 'training' && (
-        <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between p-3 bg-gradient-to-b from-black/80 to-transparent">
-          <div>
-            <p className="text-xs font-bold text-red-500">T-Step DOJO</p>
-            <p className="text-[10px] text-zinc-400">{profile.name}</p>
+          {/* Motion Indikator */}
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30">
+            <div className={`w-3 h-3 rounded-full ${motionDetected ? 'bg-green-400' : 'bg-zinc-600'}`} />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-red-400">● REC</span>
-            {motionDetected && <span className="text-[10px] text-green-400">Motion</span>}
+
+          {/* Trigger-Quadrat */}
+          {showSquare && (
+            <div className="absolute inset-0 flex items-center justify-center z-20">
+              <div className="border-4 border-red-600 rounded-2xl animate-pulse"
+                style={{ width: '40vw', height: '40vw', maxWidth: 200, maxHeight: 200 }}
+              />
+            </div>
+          )}
+
+          {/* Warte-Indikator */}
+          {isWaiting && !showSquare && (
+            <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-30">
+              <p className="text-zinc-400 text-xs text-center">Warte auf Signal…</p>
+            </div>
+          )}
+
+          {/* Abbrechen Button */}
+          <div className="absolute bottom-8 left-0 right-0 flex justify-center z-30">
             <button
-              onClick={onExit}
-              className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-400"
+              onClick={handleAbbrechen}
+              className="bg-black/70 border border-zinc-600 text-zinc-300 px-8 py-3 rounded-xl font-bold text-sm"
             >
-              ✕
+              Training beenden
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Bottom Stats */}
-      {trainingState === 'training' && (
-        <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 to-transparent p-4">
-          <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
-            <div
-              className="h-full rounded-full bg-red-600 transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-red-500">{repsRemaining}</p>
-              <p className="text-[10px] text-zinc-500">Verbleibend</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-green-400">{completedReps}</p>
-              <p className="text-[10px] text-zinc-500">Gemacht</p>
-            </div>
-            {nextBelt && (
-              <div className="text-center">
-                <p className="text-sm font-bold" style={{ color: BELT_COLORS[nextBelt] }}>
-                  {Math.max(0, repsToNext - completedReps)}
-                </p>
-                <p className="text-[10px] text-zinc-500">bis {BELT_LABELS[nextBelt]}</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Abbrechen Button */}
-      {trainingState !== 'training' && !cameraError && (
-        <button
-          onClick={onExit}
-          className="absolute bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-zinc-800/80 px-6 py-2 text-sm text-zinc-400"
-        >
-          Abbrechen
-        </button>
+        </>
       )}
     </div>
   )
