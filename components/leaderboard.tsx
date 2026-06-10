@@ -1,7 +1,8 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { PlayerProfile, BELT_LABELS } from '@/lib/storage';
+import { useState, useEffect } from 'react'
+import { PlayerProfile, BELT_LABELS, BeltLevel } from '@/lib/storage'
+import { supabase } from '@/lib/supabase'
 
 const BELTS = [
   { name: 'Alle', color: 'bg-zinc-600', text: 'text-white', border: 'border-zinc-500', minReps: 0, maxReps: Infinity },
@@ -11,40 +12,57 @@ const BELTS = [
   { name: 'Grün', color: 'bg-green-600', text: 'text-white', border: 'border-green-600', minReps: 1750, maxReps: 3749 },
   { name: 'Blau', color: 'bg-blue-600', text: 'text-white', border: 'border-blue-600', minReps: 3750, maxReps: 8249 },
   { name: 'Braun', color: 'bg-amber-800', text: 'text-white', border: 'border-amber-800', minReps: 8250, maxReps: 18249 },
-  { name: 'Schwarz', color: 'bg-black', text: 'text-white', border: 'border-zinc-400', minReps: 18250, maxReps: Infinity },
-];
-
-function getAllUsers(): PlayerProfile[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem('tstep_dojo_users');
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
+  { name: 'Schwarz', color: 'bg-zinc-900', text: 'text-white', border: 'border-zinc-400', minReps: 18250, maxReps: Infinity },
+]
 
 interface LeaderboardProps {
-  currentUserId: string;
-  onBack: () => void;
+  currentUserId: string
+  onBack: () => void
 }
 
 export default function Leaderboard({ currentUserId, onBack }: LeaderboardProps) {
-  const [activeBelt, setActiveBelt] = useState('Alle');
+  const [activeBelt, setActiveBelt] = useState('Alle')
+  const [allUsers, setAllUsers] = useState<PlayerProfile[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const allUsers = getAllUsers();
-  const activeBeltData = BELTS.find(b => b.name === activeBelt)!;
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data, error } = await supabase
+        .from('players')
+        .select('*')
+        .order('total_reps', { ascending: false })
 
-  const filtered = allUsers
-    .filter((u: PlayerProfile) => {
-      if (activeBelt === 'Alle') return true;
-      return u.totalReps >= activeBeltData.minReps && u.totalReps <= activeBeltData.maxReps;
-    })
-    .sort((a: PlayerProfile, b: PlayerProfile) => b.totalReps - a.totalReps);
+      if (!error && data) {
+        const profiles: PlayerProfile[] = data.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          team: row.team || '',
+          email: row.email,
+          passwordHash: row.password_hash,
+          securityQuestion: row.security_question || '',
+          securityAnswer: row.security_answer || '',
+          totalReps: row.total_reps || 0,
+          belt: (row.belt as BeltLevel) || 'white',
+          createdAt: row.created_at,
+          lastTrainingDate: row.last_training_date,
+          trainingHistory: row.training_history || []
+        }))
+        setAllUsers(profiles)
+      }
+      setLoading(false)
+    }
+    fetchUsers()
+  }, [])
 
-  const allSorted = allUsers.sort((a: PlayerProfile, b: PlayerProfile) => b.totalReps - a.totalReps);
-  const myRank = allSorted.findIndex((u: PlayerProfile) => u.id === currentUserId) + 1;
-  const me = allSorted.find((u: PlayerProfile) => u.id === currentUserId);
+  const activeBeltData = BELTS.find(b => b.name === activeBelt)!
+
+  const filtered = allUsers.filter(u => {
+    if (activeBelt === 'Alle') return true
+    return u.totalReps >= activeBeltData.minReps && u.totalReps <= activeBeltData.maxReps
+  })
+
+  const myRank = allUsers.findIndex(u => u.id === currentUserId) + 1
+  const me = allUsers.find(u => u.id === currentUserId)
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
@@ -59,6 +77,9 @@ export default function Leaderboard({ currentUserId, onBack }: LeaderboardProps)
         <h1 className="text-2xl font-black tracking-widest uppercase text-red-600">
           Rangliste
         </h1>
+        {!loading && (
+          <span className="ml-auto text-xs text-zinc-500">{allUsers.length} Kämpfer</span>
+        )}
       </div>
 
       {/* Gürtel Tabs */}
@@ -80,15 +101,17 @@ export default function Leaderboard({ currentUserId, onBack }: LeaderboardProps)
 
       {/* Liste */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="text-center text-zinc-500 mt-20 text-sm">Lade Rangliste…</div>
+        ) : filtered.length === 0 ? (
           <div className="text-center text-zinc-500 mt-20 text-sm">
             Noch keine Kämpfer in dieser Gürtelklasse.
           </div>
         ) : (
-          filtered.map((user: PlayerProfile, index: number) => {
-            const isCurrentUser = user.id === currentUserId;
-            const rank = index + 1;
-            const userBelt = BELTS.slice(1).reverse().find(b => user.totalReps >= b.minReps);
+          filtered.map((user, index) => {
+            const isCurrentUser = user.id === currentUserId
+            const rank = allUsers.findIndex(u => u.id === user.id) + 1
+            const userBelt = BELTS.slice(1).reverse().find(b => user.totalReps >= b.minReps)
 
             return (
               <div
@@ -141,7 +164,7 @@ export default function Leaderboard({ currentUserId, onBack }: LeaderboardProps)
                   <div className="text-xs text-zinc-500">Reps</div>
                 </div>
               </div>
-            );
+            )
           })
         )}
       </div>
@@ -150,12 +173,12 @@ export default function Leaderboard({ currentUserId, onBack }: LeaderboardProps)
       {me && (
         <div className="px-4 py-3 border-t border-zinc-800 bg-zinc-950">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-zinc-400">Dein Gesamtrang:</span>
+            <span className="text-zinc-400">Dein Rang:</span>
             <span className="font-black text-red-500 text-lg">#{myRank}</span>
             <span className="text-zinc-300 font-bold">{me.totalReps.toLocaleString('de-DE')} Reps</span>
           </div>
         </div>
       )}
     </div>
-  );
+  )
 }

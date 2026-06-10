@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { PlayerProfile, BELT_LABELS, getAllDonations, Donation } from '../lib/storage'
+import { supabase } from '../lib/supabase'
 import { CrossedKatanas } from './crossed-katanas'
 import { TrainingCalendar } from './training-calendar'
 
@@ -15,11 +16,7 @@ interface DashboardProps {
 }
 
 function DualRegulator({
-  label,
-  value,
-  onChange,
-  min = 1,
-  max = 10
+  label, value, onChange, min = 1, max = 10
 }: {
   label: string
   value: number
@@ -34,21 +31,9 @@ function DualRegulator({
     <div className="flex flex-col items-center gap-1">
       <span className="text-[10px] text-zinc-400">{label}</span>
       <div className="flex items-center gap-0.5">
-        <button
-          onClick={decrease}
-          className="flex h-7 w-7 items-center justify-center rounded bg-zinc-800 text-base font-bold text-red-500 hover:bg-zinc-700 active:bg-zinc-600"
-        >
-          -
-        </button>
-        <div className="flex h-7 w-8 items-center justify-center rounded bg-zinc-900 text-xs font-bold text-white">
-          {value}
-        </div>
-        <button
-          onClick={increase}
-          className="flex h-7 w-7 items-center justify-center rounded bg-zinc-800 text-base font-bold text-red-500 hover:bg-zinc-700 active:bg-zinc-600"
-        >
-          +
-        </button>
+        <button onClick={decrease} className="flex h-7 w-7 items-center justify-center rounded bg-zinc-800 text-base font-bold text-red-500 hover:bg-zinc-700 active:bg-zinc-600">-</button>
+        <div className="flex h-7 w-8 items-center justify-center rounded bg-zinc-900 text-xs font-bold text-white">{value}</div>
+        <button onClick={increase} className="flex h-7 w-7 items-center justify-center rounded bg-zinc-800 text-base font-bold text-red-500 hover:bg-zinc-700 active:bg-zinc-600">+</button>
       </div>
     </div>
   )
@@ -59,10 +44,43 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
   const [minSeconds, setMinSeconds] = useState(1)
   const [maxSeconds, setMaxSeconds] = useState(5)
   const [donations, setDonations] = useState<Donation[]>([])
+  const [topPlayers, setTopPlayers] = useState<{ name: string; team: string; totalReps: number; id: string }[]>([])
+  const [myRank, setMyRank] = useState<number | null>(null)
 
-useEffect(() => {
-  getAllDonations().then(data => setDonations(data.slice(0, 5)))
-}, [])
+  useEffect(() => {
+    getAllDonations().then(data => setDonations(data.slice(0, 5)))
+  }, [])
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      const { data, error } = await supabase
+        .from('players')
+        .select('id, name, team, total_reps')
+        .order('total_reps', { ascending: false })
+        .limit(5)
+      if (!error && data) {
+        const players = data.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          team: row.team || '',
+          totalReps: row.total_reps || 0
+        }))
+        setTopPlayers(players)
+
+        // Eigenen Rang ermitteln
+        const { data: allData } = await supabase
+          .from('players')
+          .select('id')
+          .order('total_reps', { ascending: false })
+        if (allData) {
+          const rank = allData.findIndex((r: any) => r.id === profile.id) + 1
+          setMyRank(rank)
+        }
+      }
+    }
+    fetchLeaderboard()
+  }, [profile.id])
+
   const handleMinChange = (value: number) => {
     setMinSeconds(value)
     if (value > maxSeconds) setMaxSeconds(value)
@@ -88,17 +106,10 @@ useEffect(() => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={onLogout}
-              className="rounded bg-zinc-800 px-2 py-1 text-[10px] text-zinc-400 hover:bg-zinc-700 hover:text-white"
-            >
+            <button onClick={onLogout} className="rounded bg-zinc-800 px-2 py-1 text-[10px] text-zinc-400 hover:bg-zinc-700 hover:text-white">
               Ausloggen
             </button>
-            <button
-              onClick={onAdminClick}
-              className="text-zinc-600 hover:text-zinc-400"
-              title="Admin"
-            >
+            <button onClick={onAdminClick} className="text-zinc-600 hover:text-zinc-400" title="Admin">
               <span className="text-lg">&#128274;</span>
             </button>
           </div>
@@ -112,34 +123,26 @@ useEffect(() => {
             <div>
               <h2 className="text-lg font-bold text-white">{profile.name}</h2>
               <p className="text-xs text-zinc-400">{BELT_LABELS[profile.belt]}</p>
-              {profile.team && (
-                <p className="text-[10px] text-zinc-500">{profile.team}</p>
-              )}
+              {profile.team && <p className="text-[10px] text-zinc-500">{profile.team}</p>}
             </div>
             <div className="text-right">
               <p className="text-xl font-bold text-red-500">{profile.totalReps}</p>
               <p className="text-[10px] text-zinc-500">Wiederholungen</p>
+              {myRank && <p className="text-[10px] text-zinc-400">Rang #{myRank}</p>}
             </div>
           </div>
         </div>
 
-        {/* Supporter Banner + Rangliste — nebeneinander */}
+        {/* Supporter + Rangliste Buttons */}
         <div className="flex gap-2">
-          <button
-            onClick={onSupportersClick}
-            className="flex-1 rounded-lg border border-yellow-900/50 bg-gradient-to-r from-yellow-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-yellow-950/60 active:from-yellow-950/80"
-          >
+          <button onClick={onSupportersClick} className="flex-1 rounded-lg border border-yellow-900/50 bg-gradient-to-r from-yellow-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-yellow-950/60">
             <div className="flex flex-col gap-1">
               <span className="text-xl">🏆</span>
               <p className="text-sm font-bold text-yellow-400">Supporter</p>
               <p className="text-[10px] text-zinc-400">100% ins Projekt</p>
             </div>
           </button>
-
-          <button
-            onClick={onLeaderboardClick}
-            className="flex-1 rounded-lg border border-red-900/50 bg-gradient-to-r from-red-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-red-950/60 active:from-red-950/80"
-          >
+          <button onClick={onLeaderboardClick} className="flex-1 rounded-lg border border-red-900/50 bg-gradient-to-r from-red-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-red-950/60">
             <div className="flex flex-col gap-1">
               <span className="text-xl">🥇</span>
               <p className="text-sm font-bold text-red-400">Rangliste</p>
@@ -151,112 +154,102 @@ useEffect(() => {
         {/* Training Configuration */}
         <div className="rounded-lg border border-red-900/50 bg-gradient-to-b from-red-950/20 to-zinc-900/50 p-3">
           <h3 className="mb-2 text-center text-xs font-bold text-red-500">Training konfigurieren</h3>
-
           <div className="mb-2">
             <p className="mb-1 text-center text-[10px] text-zinc-400">Ziel Wiederholungen</p>
             <div className="flex items-center justify-center gap-2">
-              <button
-                onClick={decreaseReps}
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-xl font-bold text-red-500 hover:bg-zinc-700 active:bg-zinc-600"
-              >
-                -
-              </button>
-              <div className="flex h-10 w-16 items-center justify-center rounded-lg bg-zinc-900 text-xl font-bold text-white">
-                {targetReps}
-              </div>
-              <button
-                onClick={increaseReps}
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-xl font-bold text-red-500 hover:bg-zinc-700 active:bg-zinc-600"
-              >
-                +
-              </button>
+              <button onClick={decreaseReps} className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-xl font-bold text-red-500 hover:bg-zinc-700">-</button>
+              <div className="flex h-10 w-16 items-center justify-center rounded-lg bg-zinc-900 text-xl font-bold text-white">{targetReps}</div>
+              <button onClick={increaseReps} className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-xl font-bold text-red-500 hover:bg-zinc-700">+</button>
             </div>
           </div>
-
           <div className="mb-2">
             <p className="mb-1 text-center text-[10px] text-zinc-400">Zufälliges Zeitfenster (1-10 Sek)</p>
             <div className="flex items-center justify-center gap-4">
-              <DualRegulator
-                label="Min Sekunden"
-                value={minSeconds}
-                onChange={handleMinChange}
-                min={1}
-                max={10}
-              />
-              <DualRegulator
-                label="Max Sekunden"
-                value={maxSeconds}
-                onChange={handleMaxChange}
-                min={1}
-                max={10}
-              />
+              <DualRegulator label="Min Sekunden" value={minSeconds} onChange={handleMinChange} min={1} max={10} />
+              <DualRegulator label="Max Sekunden" value={maxSeconds} onChange={handleMaxChange} min={1} max={10} />
             </div>
           </div>
-
           <button
             onClick={() => onStartTraining(targetReps, minSeconds, maxSeconds)}
-            className="w-full rounded-lg bg-gradient-to-r from-red-700 to-red-600 py-3 text-base font-bold text-white shadow-lg shadow-red-900/30 hover:from-red-600 hover:to-red-500 active:from-red-800 active:to-red-700"
+            className="w-full rounded-lg bg-gradient-to-r from-red-700 to-red-600 py-3 text-base font-bold text-white shadow-lg shadow-red-900/30 hover:from-red-600 hover:to-red-500"
           >
             Training starten
           </button>
         </div>
 
-        {/* Kalender */}
-        <div className="scale-[0.97] origin-top">
-          <TrainingCalendar profile={profile} />
+        {/* Kalender + Mini Rangliste nebeneinander */}
+        <div className="flex gap-2">
+          {/* Kalender */}
+          <div className="flex-1 min-w-0">
+            <TrainingCalendar profile={profile} />
+          </div>
+
+          {/* Mini Rangliste */}
+          <div className="w-36 flex-shrink-0 rounded-lg border border-red-900/30 bg-zinc-900/40 p-2">
+            <div className="mb-1.5 flex items-center justify-between">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-red-500">🥇 Top 5</p>
+              <button onClick={onLeaderboardClick} className="text-[9px] text-red-600 hover:text-red-400">Alle ›</button>
+            </div>
+            <div className="space-y-1">
+              {topPlayers.length === 0 ? (
+                <p className="text-[9px] text-zinc-600 text-center py-2">Lädt…</p>
+              ) : (
+                topPlayers.map((player, index) => (
+                  <div
+                    key={player.id}
+                    className={`flex items-center gap-1 rounded px-1 py-1 ${player.id === profile.id ? 'bg-red-950/40' : 'bg-zinc-800/50'}`}
+                  >
+                    <span className={`text-[9px] font-black w-4 flex-shrink-0 ${
+                      index === 0 ? 'text-yellow-400' :
+                      index === 1 ? 'text-zinc-400' :
+                      index === 2 ? 'text-amber-700' : 'text-zinc-500'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <span className={`text-[9px] truncate flex-1 ${player.id === profile.id ? 'text-red-400 font-bold' : 'text-zinc-300'}`}>
+                      {player.name}
+                    </span>
+                    <span className="text-[9px] font-bold text-red-500 flex-shrink-0">
+                      {player.totalReps}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+            {myRank && (
+              <div className="mt-1.5 border-t border-zinc-700 pt-1 text-center">
+                <p className="text-[9px] text-zinc-500">Dein Rang</p>
+                <p className="text-xs font-black text-red-500">#{myRank}</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Mini Supporter Wall */}
         <div className="rounded-lg border border-yellow-900/30 bg-zinc-900/40 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-600">
-              🏆 Unsere Supporter
-            </p>
-            <button
-              onClick={onSupportersClick}
-              className="text-[10px] text-yellow-600 hover:text-yellow-400"
-            >
-              Alle ansehen ›
-            </button>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-600">🏆 Unsere Supporter</p>
+            <button onClick={onSupportersClick} className="text-[10px] text-yellow-600 hover:text-yellow-400">Alle ansehen ›</button>
           </div>
-
           {donations.length === 0 ? (
-            <p className="text-center text-[10px] text-zinc-600 py-2">
-              Noch keine Supporter — sei der Erste! 💛
-            </p>
+            <p className="text-center text-[10px] text-zinc-600 py-2">Noch keine Supporter — sei der Erste! 💛</p>
           ) : (
             <div className="space-y-1.5">
               {donations.map((d) => (
-                <div
-                  key={d.id}
-                  className="flex items-center justify-between rounded bg-zinc-800/50 px-2 py-1.5"
-                >
+                <div key={d.id} className="flex items-center justify-between rounded bg-zinc-800/50 px-2 py-1.5">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs">
-                      {d.isAnonymous ? '🥷' : '⭐'}
-                    </span>
+                    <span className="text-xs">{d.isAnonymous ? '🥷' : '⭐'}</span>
                     <div>
-                      <p className="text-xs font-bold text-white">
-                        {d.isAnonymous ? 'Anonymer Supporter' : d.name}
-                      </p>
-                      {d.message && (
-                        <p className="text-[10px] text-zinc-500 truncate max-w-[180px]">
-                          {d.message}
-                        </p>
-                      )}
+                      <p className="text-xs font-bold text-white">{d.isAnonymous ? 'Anonymer Supporter' : d.name}</p>
+                      {d.message && <p className="text-[10px] text-zinc-500 truncate max-w-[180px]">{d.message}</p>}
                     </div>
                   </div>
-                  <p className="text-xs font-bold text-yellow-500">
-                    {d.amount.toFixed(2)}€
-                  </p>
+                  <p className="text-xs font-bold text-yellow-500">{d.amount.toFixed(2)}€</p>
                 </div>
               ))}
             </div>
           )}
-
-          <p className="mt-2 text-center text-[10px] text-zinc-600">
-            Danke für eure Unterstützung! 🙏 100% fließt ins Projekt.
-          </p>
+          <p className="mt-2 text-center text-[10px] text-zinc-600">Danke für eure Unterstützung! 🙏 100% fließt ins Projekt.</p>
         </div>
       </main>
     </div>

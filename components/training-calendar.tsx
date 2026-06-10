@@ -12,20 +12,16 @@ export function TrainingCalendar({ profile }: TrainingCalendarProps) {
     const now = new Date()
     const year = now.getFullYear()
     const month = now.getMonth()
-    
-    // Get first day of month and number of days
+
     const firstDay = new Date(year, month, 1)
     const lastDay = new Date(year, month + 1, 0)
     const daysInMonth = lastDay.getDate()
-    const startDayOfWeek = firstDay.getDay() // 0 = Sunday
-    
-    // Adjust for Monday start (0 = Monday, 6 = Sunday)
+    const startDayOfWeek = firstDay.getDay()
     const adjustedStartDay = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1
-    
-    // Get training days this month
+
     const trainingDays = new Set<number>()
     const repsPerDay: Record<number, number> = {}
-    
+
     profile.trainingHistory.forEach(session => {
       const sessionDate = new Date(session.date)
       if (sessionDate.getMonth() === month && sessionDate.getFullYear() === year) {
@@ -34,91 +30,63 @@ export function TrainingCalendar({ profile }: TrainingCalendarProps) {
         repsPerDay[day] = (repsPerDay[day] || 0) + session.reps
       }
     })
-    
-    return {
-      year,
-      month,
-      daysInMonth,
-      adjustedStartDay,
-      trainingDays,
-      repsPerDay,
-      today: now.getDate()
-    }
+
+    return { year, month, daysInMonth, adjustedStartDay, trainingDays, repsPerDay, today: now.getDate() }
   }, [profile.trainingHistory])
 
-  const monthNames = [
-    'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
-    'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
-  ]
-
+  const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
   const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
-  // Generate calendar grid
   const calendarCells: (number | null)[] = []
-  for (let i = 0; i < calendarData.adjustedStartDay; i++) {
-    calendarCells.push(null)
-  }
-  for (let day = 1; day <= calendarData.daysInMonth; day++) {
-    calendarCells.push(day)
-  }
+  for (let i = 0; i < calendarData.adjustedStartDay; i++) calendarCells.push(null)
+  for (let day = 1; day <= calendarData.daysInMonth; day++) calendarCells.push(day)
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-      {/* Month header */}
-      <h3 className="mb-4 text-center text-lg font-bold text-white">
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-2">
+      <h3 className="mb-1.5 text-center text-xs font-bold text-white">
         {monthNames[calendarData.month]} {calendarData.year}
       </h3>
 
-      {/* Day headers */}
-      <div className="mb-2 grid grid-cols-7 gap-1">
+      <div className="mb-1 grid grid-cols-7 gap-0.5">
         {dayNames.map(day => (
-          <div key={day} className="text-center text-xs font-medium text-zinc-500">
+          <div key={day} className="text-center text-[9px] font-medium text-zinc-500">
             {day}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5">
         {calendarCells.map((day, index) => {
-          if (day === null) {
-            return <div key={`empty-${index}`} className="aspect-square" />
-          }
-
+          if (day === null) return <div key={`empty-${index}`} className="aspect-square" />
           const isToday = day === calendarData.today
           const hasTraining = calendarData.trainingDays.has(day)
-          const reps = calendarData.repsPerDay[day] || 0
 
           return (
             <div
               key={day}
-              className={`relative flex aspect-square flex-col items-center justify-center rounded text-xs ${
+              className={`relative flex aspect-square flex-col items-center justify-center rounded text-[10px] ${
                 isToday
-                  ? 'bg-red-900/50 ring-2 ring-red-500'
+                  ? 'bg-red-900/50 ring-1 ring-red-500'
                   : hasTraining
-                    ? 'bg-green-900/30'
+                    ? 'bg-green-900/40'
                     : 'bg-zinc-800/50'
               }`}
             >
-              <span className={`${isToday ? 'font-bold text-white' : 'text-zinc-400'}`}>
+              <span className={isToday ? 'font-bold text-white' : 'text-zinc-400'}>
                 {day}
               </span>
-              {hasTraining && (
-                <span className="text-[8px] text-green-400">{reps}</span>
-              )}
             </div>
           )
         })}
       </div>
 
-      {/* Legend */}
-      <div className="mt-3 flex items-center justify-center gap-4 text-xs text-zinc-500">
+      <div className="mt-1.5 flex items-center justify-center gap-3 text-[9px] text-zinc-500">
         <div className="flex items-center gap-1">
-          <div className="h-2 w-2 rounded bg-green-900/50" />
+          <div className="h-1.5 w-1.5 rounded bg-green-900/50" />
           <span>Trainiert</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-2 w-2 rounded bg-red-900/50 ring-1 ring-red-500" />
+          <div className="h-1.5 w-1.5 rounded bg-red-900/50 ring-1 ring-red-500" />
           <span>Heute</span>
         </div>
       </div>
