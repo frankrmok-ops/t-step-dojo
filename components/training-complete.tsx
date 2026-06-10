@@ -144,7 +144,7 @@ export function TrainingComplete({
       {showCelebration && <Confetti />}
 
       {/* Gürtel-Aufstieg Feier */}
-      {beltUpgraded && showCelebration && (
+      {showCelebration && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-40 bg-black/80"
           onClick={() => setShowCelebration(false)}>
           <div className="text-center px-6">
