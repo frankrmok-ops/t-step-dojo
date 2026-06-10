@@ -57,7 +57,8 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
         .from('players')
         .select('id, name, team, total_reps')
         .order('total_reps', { ascending: false })
-        .limit(5)
+        .limit(100)
+
       if (!error && data) {
         const players = data.map((row: any) => ({
           id: row.id,
@@ -66,16 +67,8 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
           totalReps: row.total_reps || 0
         }))
         setTopPlayers(players)
-
-        // Eigenen Rang ermitteln
-        const { data: allData } = await supabase
-          .from('players')
-          .select('id')
-          .order('total_reps', { ascending: false })
-        if (allData) {
-          const rank = allData.findIndex((r: any) => r.id === profile.id) + 1
-          setMyRank(rank)
-        }
+        const rank = players.findIndex((p: any) => p.id === profile.id) + 1
+        setMyRank(rank > 0 ? rank : null)
       }
     }
     fetchLeaderboard()
@@ -177,29 +170,25 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
           </button>
         </div>
 
-        {/* Kalender + Mini Rangliste nebeneinander */}
+        {/* Top 100 Rangliste (links) + Kalender & Rang (rechts) */}
         <div className="flex gap-2">
-          {/* Kalender */}
-          <div className="flex-1 min-w-0">
-            <TrainingCalendar profile={profile} />
-          </div>
 
-          {/* Mini Rangliste */}
-          <div className="w-36 flex-shrink-0 rounded-lg border border-red-900/30 bg-zinc-900/40 p-2">
-            <div className="mb-1.5 flex items-center justify-between">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-red-500">🥇 Top 5</p>
-              <button onClick={onLeaderboardClick} className="text-[9px] text-red-600 hover:text-red-400">Alle ›</button>
+          {/* TOP 100 Rangliste — links groß, scrollbar */}
+          <div className="flex-1 min-w-0 rounded-lg border border-red-900/30 bg-zinc-900/40 flex flex-col">
+            <div className="flex items-center justify-between px-2 pt-2 pb-1 border-b border-zinc-800">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">🥇 Top 100</p>
+              <button onClick={onLeaderboardClick} className="text-[9px] text-red-600 hover:text-red-400">Vollbild ›</button>
             </div>
-            <div className="space-y-1">
+            <div className="overflow-y-auto max-h-64 p-1 space-y-0.5">
               {topPlayers.length === 0 ? (
-                <p className="text-[9px] text-zinc-600 text-center py-2">Lädt…</p>
+                <p className="text-[9px] text-zinc-600 text-center py-4">Lädt…</p>
               ) : (
                 topPlayers.map((player, index) => (
                   <div
                     key={player.id}
-                    className={`flex items-center gap-1 rounded px-1 py-1 ${player.id === profile.id ? 'bg-red-950/40' : 'bg-zinc-800/50'}`}
+                    className={`flex items-center gap-1 rounded px-1.5 py-1 ${player.id === profile.id ? 'bg-red-950/50 border border-red-800' : 'bg-zinc-800/40'}`}
                   >
-                    <span className={`text-[9px] font-black w-4 flex-shrink-0 ${
+                    <span className={`text-[9px] font-black w-5 flex-shrink-0 ${
                       index === 0 ? 'text-yellow-400' :
                       index === 1 ? 'text-zinc-400' :
                       index === 2 ? 'text-amber-700' : 'text-zinc-500'
@@ -216,12 +205,29 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
                 ))
               )}
             </div>
-            {myRank && (
-              <div className="mt-1.5 border-t border-zinc-700 pt-1 text-center">
-                <p className="text-[9px] text-zinc-500">Dein Rang</p>
-                <p className="text-xs font-black text-red-500">#{myRank}</p>
-              </div>
-            )}
+          </div>
+
+          {/* Rechte Spalte: Kalender oben + Eigener Rang unten */}
+          <div className="w-36 flex-shrink-0 flex flex-col gap-2">
+
+            {/* Kalender klein oben */}
+            <div className="flex-1">
+              <TrainingCalendar profile={profile} />
+            </div>
+
+            {/* Eigener Rang unten */}
+            <div className="rounded-lg border border-red-900/30 bg-zinc-900/40 p-2 text-center">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-red-500 mb-1">Dein Rang</p>
+              {myRank ? (
+                <>
+                  <p className="text-2xl font-black text-red-500">#{myRank}</p>
+                  <p className="text-[9px] text-zinc-500">{profile.totalReps} Reps</p>
+                  <p className="text-[9px] text-zinc-500 truncate">{profile.name}</p>
+                </>
+              ) : (
+                <p className="text-[9px] text-zinc-600">Lädt…</p>
+              )}
+            </div>
           </div>
         </div>
 
