@@ -87,9 +87,9 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
   const increaseReps = () => setTargetReps(Math.min(100, targetReps + 5))
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-black overflow-x-hidden">
       {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-900/50 p-3">
+      <header className="border-b border-zinc-800 bg-zinc-900/50 px-3 pt-safe-top pb-3">
         <div className="mx-auto flex max-w-lg items-center justify-between">
           <div className="flex items-center gap-2">
             <CrossedKatanas className="h-8 w-8" />
