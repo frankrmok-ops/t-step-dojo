@@ -126,23 +126,16 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
           </div>
         </div>
 
-        {/* Supporter + Rangliste Buttons */}
-        <div className="flex gap-2">
-          <button onClick={onSupportersClick} className="flex-1 rounded-lg border border-yellow-900/50 bg-gradient-to-r from-yellow-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-yellow-950/60">
-            <div className="flex flex-col gap-1">
-              <span className="text-xl">🏆</span>
-              <p className="text-sm font-bold text-yellow-400">Supporter</p>
-              <p className="text-[10px] text-zinc-400">100% ins Projekt</p>
+        {/* Supporter Button — volle Breite */}
+        <button onClick={onSupportersClick} className="w-full rounded-lg border border-yellow-900/50 bg-gradient-to-r from-yellow-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-yellow-950/60">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🏆</span>
+            <div>
+              <p className="text-sm font-bold text-yellow-400">Unsere Supporter</p>
+              <p className="text-[10px] text-zinc-400">100% fließt ins Projekt</p>
             </div>
-          </button>
-          <button onClick={onLeaderboardClick} className="flex-1 rounded-lg border border-red-900/50 bg-gradient-to-r from-red-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-red-950/60">
-            <div className="flex flex-col gap-1">
-              <span className="text-xl">🥇</span>
-              <p className="text-sm font-bold text-red-400">Rangliste</p>
-              <p className="text-[10px] text-zinc-400">Dein Rang ansehen</p>
-            </div>
-          </button>
-        </div>
+          </div>
+        </button>
 
         {/* Training Configuration */}
         <div className="rounded-lg border border-red-900/50 bg-gradient-to-b from-red-950/20 to-zinc-900/50 p-3">
@@ -170,10 +163,9 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
           </button>
         </div>
 
-        {/* Top 100 Rangliste (links) + Kalender & Rang (rechts) */}
+        {/* Top 100 Rangliste (links) + Kalender (rechts) */}
         <div className="flex gap-2">
-
-          {/* TOP 100 Rangliste — links groß, scrollbar */}
+          {/* TOP 100 Rangliste */}
           <div className="flex-1 min-w-0 rounded-lg border border-red-900/30 bg-zinc-900/40 flex flex-col">
             <div className="flex items-center justify-between px-2 pt-2 pb-1 border-b border-zinc-800">
               <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">🥇 Top 100</p>
@@ -207,27 +199,9 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
             </div>
           </div>
 
-          {/* Rechte Spalte: Kalender oben + Eigener Rang unten */}
-          <div className="w-36 flex-shrink-0 flex flex-col gap-2">
-
-            {/* Kalender klein oben */}
-            <div className="flex-1">
-              <TrainingCalendar profile={profile} />
-            </div>
-
-            {/* Eigener Rang unten */}
-            <div className="rounded-lg border border-red-900/30 bg-zinc-900/40 p-2 text-center">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-red-500 mb-1">Dein Rang</p>
-              {myRank ? (
-                <>
-                  <p className="text-2xl font-black text-red-500">#{myRank}</p>
-                  <p className="text-[9px] text-zinc-500">{profile.totalReps} Reps</p>
-                  <p className="text-[9px] text-zinc-500 truncate">{profile.name}</p>
-                </>
-              ) : (
-                <p className="text-[9px] text-zinc-600">Lädt…</p>
-              )}
-            </div>
+          {/* Kalender rechts */}
+          <div className="w-36 flex-shrink-0">
+            <TrainingCalendar profile={profile} />
           </div>
         </div>
 
