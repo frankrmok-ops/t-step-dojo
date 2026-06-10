@@ -409,15 +409,12 @@ export function getAverageReps(profile: PlayerProfile): number {
 
 export function getCurrentStreak(profile: PlayerProfile): number {
   if (profile.trainingHistory.length === 0) return 0
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const trainedDays = new Set(profile.trainingHistory.map(s => s.date.split('T')[0]))
   let streak = 0
-  let checkDate = new Date(today)
-
+  const checkDate = new Date()
   while (true) {
     const dateStr = checkDate.toISOString().split('T')[0]
-    const trained = profile.trainingHistory.some(s => s.date.startsWith(dateStr))
-    if (!trained) break
+    if (!trainedDays.has(dateStr)) break
     streak++
     checkDate.setDate(checkDate.getDate() - 1)
   }

@@ -239,7 +239,7 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
           </button>
         </div>
 
-        {/* Top 100 Rangliste (links) + Kalender (rechts) */}
+        {/* Top 100 Rangliste */}
         <div className="flex gap-2">
           {/* TOP 100 Rangliste */}
           <div className="flex-1 min-w-0 rounded-lg border border-red-900/30 bg-zinc-900/40 flex flex-col">
@@ -275,10 +275,7 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
             </div>
           </div>
 
-          {/* Kalender rechts */}
-          <div className="w-36 flex-shrink-0">
-            <TrainingCalendar profile={profile} />
-          </div>
+          
         </div>
       </main>
     </div>

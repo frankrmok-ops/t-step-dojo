@@ -47,7 +47,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#DC143C" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
