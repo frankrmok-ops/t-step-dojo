@@ -134,6 +134,7 @@ export function TrainingMode({
       scheduleNextSquare()
       return
     }
+    playBeep(660, 100)
     const timer = setTimeout(() => setPositionTimer(t => t - 1), 1000)
     return () => clearTimeout(timer)
   }, [trainingState, positionTimer])
@@ -357,6 +358,12 @@ export function TrainingMode({
               <p className="text-zinc-400 text-xs text-center">Warte auf Signal…</p>
             </div>
           )}
+
+          {/* Reps Countdown groß unten */}
+          <div className="absolute bottom-28 left-0 right-0 flex flex-col items-center z-30">
+            <div className="text-white font-black opacity-90" style={{ fontSize: '25vw', lineHeight: 1 }}>{repsRemaining}</div>
+            <p className="text-zinc-400 text-xs mt-1">verbleibende Reps</p>
+          </div>
 
           {/* Abbrechen Button */}
           <div className="absolute bottom-8 left-0 right-0 flex justify-center z-30">
