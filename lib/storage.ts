@@ -367,6 +367,34 @@ export function getRepsToNextBelt(totalReps: number): number {
   return BELT_THRESHOLDS[nextBelt] - totalReps
 }
 
+// Tages-Challenge
+export function getDailyChallenge(profile: PlayerProfile): number {
+  const challenges: Record<BeltLevel, number> = {
+    white: 20,
+    yellow: 30,
+    orange: 50,
+    green: 75,
+    blue: 100,
+    brown: 150,
+    black: 200
+  }
+  return challenges[profile.belt]
+}
+
+export function isChallengeCompletedToday(profile: PlayerProfile): boolean {
+  const today = new Date().toISOString().split('T')[0]
+  const todaySessions = profile.trainingHistory.filter(s => s.date.startsWith(today))
+  const todayReps = todaySessions.reduce((sum, s) => sum + s.reps, 0)
+  return todayReps >= getDailyChallenge(profile)
+}
+
+export function getTodayReps(profile: PlayerProfile): number {
+  const today = new Date().toISOString().split('T')[0]
+  return profile.trainingHistory
+    .filter(s => s.date.startsWith(today))
+    .reduce((sum, s) => sum + s.reps, 0)
+}
+
 // Statistik-Funktionen
 export function getBestSession(profile: PlayerProfile): number {
   if (profile.trainingHistory.length === 0) return 0

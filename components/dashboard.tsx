@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PlayerProfile, BELT_LABELS, getAllDonations, Donation, getRepsToNextBelt, getBestSession, getAverageReps, getCurrentStreak } from '../lib/storage'
+import { PlayerProfile, BELT_LABELS, getAllDonations, Donation, getRepsToNextBelt, getBestSession, getAverageReps, getCurrentStreak, getDailyChallenge, isChallengeCompletedToday, getTodayReps } from '../lib/storage'
 import { supabase } from '../lib/supabase'
 import { CrossedKatanas } from './crossed-katanas'
 import { TrainingCalendar } from './training-calendar'
@@ -135,6 +135,24 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
                 style={{ width: `${Math.min(100, 100 - (getRepsToNextBelt(profile.totalReps) / 250) * 100)}%` }}
               />
             </div>
+          </div>
+        </div>
+
+        {/* Tages-Challenge */}
+        <div className={`rounded-lg border p-3 ${isChallengeCompletedToday(profile) ? 'border-green-800 bg-green-950/30' : 'border-red-900/50 bg-zinc-900/50'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">⚡ Tages-Challenge</p>
+            {isChallengeCompletedToday(profile) && <span className="text-[10px] text-green-500 font-bold">✅ Erledigt!</span>}
+          </div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-white font-bold">Heute: <span className="text-red-500">{getDailyChallenge(profile)} Reps</span> schaffen</p>
+            <p className="text-xs text-zinc-400">{getTodayReps(profile)}/{getDailyChallenge(profile)}</p>
+          </div>
+          <div className="h-2 w-full rounded-full bg-zinc-800">
+            <div
+              className={`h-2 rounded-full transition-all ${isChallengeCompletedToday(profile) ? 'bg-green-500' : 'bg-red-600'}`}
+              style={{ width: `${Math.min(100, (getTodayReps(profile) / getDailyChallenge(profile)) * 100)}%` }}
+            />
           </div>
         </div>
 
