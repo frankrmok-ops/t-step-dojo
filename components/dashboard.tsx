@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PlayerProfile, BELT_LABELS, getAllDonations, Donation, getRepsToNextBelt } from '../lib/storage'
+import { PlayerProfile, BELT_LABELS, getAllDonations, Donation, getRepsToNextBelt, getBestSession, getAverageReps, getCurrentStreak } from '../lib/storage'
 import { supabase } from '../lib/supabase'
 import { CrossedKatanas } from './crossed-katanas'
 import { TrainingCalendar } from './training-calendar'
@@ -134,6 +134,25 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
                 className="h-1.5 rounded-full bg-gradient-to-r from-red-700 to-red-500"
                 style={{ width: `${Math.min(100, 100 - (getRepsToNextBelt(profile.totalReps) / 250) * 100)}%` }}
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Statistik Karte */}
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">📊 Statistik</p>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <p className="text-lg font-black text-white">{getBestSession(profile)}</p>
+              <p className="text-[9px] text-zinc-500">Beste Session</p>
+            </div>
+            <div>
+              <p className="text-lg font-black text-white">{getAverageReps(profile)}</p>
+              <p className="text-[9px] text-zinc-500">Ø pro Session</p>
+            </div>
+            <div>
+              <p className="text-lg font-black text-yellow-500">{getCurrentStreak(profile)} 🔥</p>
+              <p className="text-[9px] text-zinc-500">Tage Streak</p>
             </div>
           </div>
         </div>

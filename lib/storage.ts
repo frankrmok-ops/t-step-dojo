@@ -367,6 +367,35 @@ export function getRepsToNextBelt(totalReps: number): number {
   return BELT_THRESHOLDS[nextBelt] - totalReps
 }
 
+// Statistik-Funktionen
+export function getBestSession(profile: PlayerProfile): number {
+  if (profile.trainingHistory.length === 0) return 0
+  return Math.max(...profile.trainingHistory.map(s => s.reps))
+}
+
+export function getAverageReps(profile: PlayerProfile): number {
+  if (profile.trainingHistory.length === 0) return 0
+  const total = profile.trainingHistory.reduce((sum, s) => sum + s.reps, 0)
+  return Math.round(total / profile.trainingHistory.length)
+}
+
+export function getCurrentStreak(profile: PlayerProfile): number {
+  if (profile.trainingHistory.length === 0) return 0
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  let streak = 0
+  let checkDate = new Date(today)
+
+  while (true) {
+    const dateStr = checkDate.toISOString().split('T')[0]
+    const trained = profile.trainingHistory.some(s => s.date.startsWith(dateStr))
+    if (!trained) break
+    streak++
+    checkDate.setDate(checkDate.getDate() - 1)
+  }
+  return streak
+}
+
 // Donations — Supabase
 export async function getAllDonations(): Promise<Donation[]> {
   const { data, error } = await supabase
