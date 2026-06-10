@@ -126,16 +126,43 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
           </div>
         </div>
 
-        {/* Supporter Button — volle Breite */}
+        {/* Spendenlink Support Button */}
         <button onClick={onSupportersClick} className="w-full rounded-lg border border-yellow-900/50 bg-gradient-to-r from-yellow-950/40 to-zinc-900/50 p-3 text-left transition-all hover:from-yellow-950/60">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🏆</span>
             <div>
-              <p className="text-sm font-bold text-yellow-400">Unsere Supporter</p>
+              <p className="text-sm font-bold text-yellow-400">Spendenlink Support</p>
               <p className="text-[10px] text-zinc-400">100% fließt ins Projekt</p>
             </div>
           </div>
         </button>
+
+        {/* Unsere Supporter Wall — direkt unter Spendenlink */}
+        <div className="rounded-lg border border-yellow-900/30 bg-zinc-900/40 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-600">🏆 Unsere Supporter</p>
+            <button onClick={onSupportersClick} className="text-[10px] text-yellow-600 hover:text-yellow-400">Alle ansehen ›</button>
+          </div>
+          {donations.length === 0 ? (
+            <p className="text-center text-[10px] text-zinc-600 py-2">Noch keine Supporter — sei der Erste! 💛</p>
+          ) : (
+            <div className="space-y-1.5">
+              {donations.map((d) => (
+                <div key={d.id} className="flex items-center justify-between rounded bg-zinc-800/50 px-2 py-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs">{d.isAnonymous ? '🥷' : '⭐'}</span>
+                    <div>
+                      <p className="text-xs font-bold text-white">{d.isAnonymous ? 'Anonymer Supporter' : d.name}</p>
+                      {d.message && <p className="text-[10px] text-zinc-500 truncate max-w-[180px]">{d.message}</p>}
+                    </div>
+                  </div>
+                  <p className="text-xs font-bold text-yellow-500">{d.amount.toFixed(2)}€</p>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-center text-[10px] text-zinc-600">Danke für eure Unterstützung! 🙏 100% fließt ins Projekt.</p>
+        </div>
 
         {/* Training Configuration */}
         <div className="rounded-lg border border-red-900/50 bg-gradient-to-b from-red-950/20 to-zinc-900/50 p-3">
@@ -203,33 +230,6 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
           <div className="w-36 flex-shrink-0">
             <TrainingCalendar profile={profile} />
           </div>
-        </div>
-
-        {/* Mini Supporter Wall */}
-        <div className="rounded-lg border border-yellow-900/30 bg-zinc-900/40 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-600">🏆 Unsere Supporter</p>
-            <button onClick={onSupportersClick} className="text-[10px] text-yellow-600 hover:text-yellow-400">Alle ansehen ›</button>
-          </div>
-          {donations.length === 0 ? (
-            <p className="text-center text-[10px] text-zinc-600 py-2">Noch keine Supporter — sei der Erste! 💛</p>
-          ) : (
-            <div className="space-y-1.5">
-              {donations.map((d) => (
-                <div key={d.id} className="flex items-center justify-between rounded bg-zinc-800/50 px-2 py-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs">{d.isAnonymous ? '🥷' : '⭐'}</span>
-                    <div>
-                      <p className="text-xs font-bold text-white">{d.isAnonymous ? 'Anonymer Supporter' : d.name}</p>
-                      {d.message && <p className="text-[10px] text-zinc-500 truncate max-w-[180px]">{d.message}</p>}
-                    </div>
-                  </div>
-                  <p className="text-xs font-bold text-yellow-500">{d.amount.toFixed(2)}€</p>
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="mt-2 text-center text-[10px] text-zinc-600">Danke für eure Unterstützung! 🙏 100% fließt ins Projekt.</p>
         </div>
       </main>
     </div>
