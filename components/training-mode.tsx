@@ -12,7 +12,7 @@ interface TrainingModeProps {
   onExit: () => void
 }
 
-type TrainingState = 'requesting' | 'waiting_tap' | 'positioning' | 'countdown' | 'training'
+type TrainingState = 'requesting' | 'waiting_tap' | 'positioning' | 'training'
 
 export function TrainingMode({
   profile,
@@ -24,7 +24,7 @@ export function TrainingMode({
 }: TrainingModeProps) {
   const [trainingState, setTrainingState] = useState<TrainingState>('requesting')
   const [positionTimer, setPositionTimer] = useState(10)
-  const [countdown, setCountdown] = useState(3)
+  const [countdown, setCountdown] = useState(0)
   const [repsRemaining, setRepsRemaining] = useState(targetReps)
   const [completedReps, setCompletedReps] = useState(0)
   const [showSquare, setShowSquare] = useState(false)
@@ -129,26 +129,16 @@ export function TrainingMode({
   useEffect(() => {
     if (trainingState !== 'positioning') return
     if (positionTimer <= 0) {
-      setTrainingState('countdown')
-      setCountdown(3)
+      playBeep(1200, 300)
+      setTrainingState('training')
+      scheduleNextSquare()
       return
     }
     const timer = setTimeout(() => setPositionTimer(t => t - 1), 1000)
     return () => clearTimeout(timer)
   }, [trainingState, positionTimer])
 
-  useEffect(() => {
-    if (trainingState !== 'countdown') return
-    if (countdown <= 0) {
-      playBeep(1200, 300)
-      setTrainingState('training')
-      scheduleNextSquare()
-      return
-    }
-    playBeep(880, 150)
-    const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [trainingState, countdown, playBeep])
+  
 
   const detectMotion = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return false
@@ -330,14 +320,7 @@ export function TrainingMode({
         </div>
       )}
 
-      {/* ZUSTAND: 3-2-1 Countdown */}
-      {trainingState === 'countdown' && (
-        <div className="absolute inset-0 flex items-center justify-center z-40">
-          <div className="text-white font-black drop-shadow-lg" style={{ fontSize: '20vw' }}>
-            {countdown}
-          </div>
-        </div>
-      )}
+      
 
       {/* ZUSTAND: Training läuft */}
       {trainingState === 'training' && (
@@ -362,7 +345,7 @@ export function TrainingMode({
           {/* Trigger-Quadrat */}
           {showSquare && (
             <div className="absolute inset-0 flex items-center justify-center z-20">
-              <div className="border-4 border-red-600 rounded-2xl animate-pulse"
+              <div className="bg-red-600 rounded-2xl animate-pulse"
                 style={{ width: '40vw', height: '40vw', maxWidth: 200, maxHeight: 200 }}
               />
             </div>
