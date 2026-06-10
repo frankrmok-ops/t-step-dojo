@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PlayerProfile, BELT_LABELS, getAllDonations, Donation } from '../lib/storage'
+import { PlayerProfile, BELT_LABELS, getAllDonations, Donation, getRepsToNextBelt } from '../lib/storage'
 import { supabase } from '../lib/supabase'
 import { CrossedKatanas } from './crossed-katanas'
 import { TrainingCalendar } from './training-calendar'
@@ -122,6 +122,18 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
               <p className="text-xl font-bold text-red-500">{profile.totalReps}</p>
               <p className="text-[10px] text-zinc-500">Wiederholungen</p>
               {myRank && <p className="text-[10px] text-zinc-400">Rang #{myRank}</p>}
+            </div>
+          </div>
+          <div className="mt-2 pt-2 border-t border-zinc-800">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] text-zinc-500">Nächster Gürtel</p>
+              <p className="text-[10px] font-bold text-yellow-500">{getRepsToNextBelt(profile.totalReps)} Reps fehlen noch</p>
+            </div>
+            <div className="mt-1 h-1.5 w-full rounded-full bg-zinc-800">
+              <div
+                className="h-1.5 rounded-full bg-gradient-to-r from-red-700 to-red-500"
+                style={{ width: `${Math.min(100, 100 - (getRepsToNextBelt(profile.totalReps) / 250) * 100)}%` }}
+              />
             </div>
           </div>
         </div>
