@@ -397,6 +397,10 @@ export async function uploadAvatar(profileId: string, file: File): Promise<{ suc
 
 export async function updateAvatarUrl(profileId: string, url: string): Promise<void> {
   await supabase.from('players').update({ avatar_url: url }).eq('id', profileId)
+  const cached = getPlayerProfile()
+  if (cached) {
+    cacheProfile({ ...cached, avatarUrl: url })
+  }
 }
 
 // Tages-Challenge
