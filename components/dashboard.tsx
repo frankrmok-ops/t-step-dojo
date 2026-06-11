@@ -15,6 +15,7 @@ interface DashboardProps {
   onLogout: () => void
   onSupportersClick: () => void
   onLeaderboardClick: () => void
+  onAvatarUpdate?: (url: string) => void
 }
 
 function DualRegulator({
@@ -41,7 +42,7 @@ function DualRegulator({
   )
 }
 
-export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, onSupportersClick, onLeaderboardClick }: DashboardProps) {
+export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, onSupportersClick, onLeaderboardClick, onAvatarUpdate }: DashboardProps) {
   const [showDuels, setShowDuels] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl || '')
   const [targetReps, setTargetReps] = useState(10)
@@ -124,6 +125,7 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
                 profile={{ ...profile, avatarUrl }}
                 onUpdate={(url) => {
                   setAvatarUrl(url)
+                  onAvatarUpdate?.(url)
                 }}
               />
               <div>

@@ -107,6 +107,7 @@ export default function Home() {
           onLogout={handleLogout}
           onSupportersClick={() => setAppState('supporters')}
           onLeaderboardClick={() => setAppState('leaderboard')}
+          onAvatarUpdate={(url) => setProfile(p => p ? { ...p, avatarUrl: url } : p)}
         />
       )}
       {appState === 'training' && profile && (
