@@ -45,7 +45,8 @@ export default function Leaderboard({ currentUserId, onBack }: LeaderboardProps)
           belt: (row.belt as BeltLevel) || 'white',
           createdAt: row.created_at,
           lastTrainingDate: row.last_training_date,
-          trainingHistory: row.training_history || []
+          trainingHistory: row.training_history || [],
+          avatarUrl: row.avatar_url || ''
         }))
         setAllUsers(profiles)
       }
