@@ -13,6 +13,7 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<string | null>(null)
   const [currentFile, setCurrentFile] = useState<File | null>(null)
+  const [uploadedUrl, setUploadedUrl] = useState<string>(profile.avatarUrl || '')
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
