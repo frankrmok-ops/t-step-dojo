@@ -373,17 +373,26 @@ export function getRepsToNextBelt(totalReps: number): number {
 
 // Avatar Upload
 export async function uploadAvatar(profileId: string, file: File): Promise<{ success: boolean; url?: string; error?: string }> {
-  const fileExt = file.name.split('.').pop()
-  const fileName = `${profileId}.${fileExt}`
+  try {
+    const fileName = `${profileId}-${Date.now()}.jpg`
 
-  const { error } = await supabase.storage
-    .from('avatars')
-    .upload(fileName, file, { upsert: true })
+    const { data, error } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, file, { 
+        upsert: true,
+        contentType: 'image/jpeg'
+      })
 
-  if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: error.message }
 
-  const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
-  return { success: true, url: data.publicUrl }
+    const { data: urlData } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(fileName)
+    
+    return { success: true, url: urlData.publicUrl }
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Unbekannter Fehler' }
+  }
 }
 
 export async function updateAvatarUrl(profileId: string, url: string): Promise<void> {
