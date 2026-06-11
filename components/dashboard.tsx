@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { CrossedKatanas } from './crossed-katanas'
 import { TrainingCalendar } from './training-calendar'
 import { DuelScreen } from './duel-screen'
+import { AvatarUpload } from './avatar-upload'
 
 interface DashboardProps {
   profile: PlayerProfile
@@ -42,6 +43,7 @@ function DualRegulator({
 
 export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, onSupportersClick, onLeaderboardClick }: DashboardProps) {
   const [showDuels, setShowDuels] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl || '')
   const [targetReps, setTargetReps] = useState(10)
   const [minSeconds, setMinSeconds] = useState(1)
   const [maxSeconds, setMaxSeconds] = useState(5)
@@ -117,10 +119,16 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
         {/* Profile Card */}
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-white">{profile.name}</h2>
-              <p className="text-xs text-zinc-400">{BELT_LABELS[profile.belt]}</p>
-              {profile.team && <p className="text-[10px] text-zinc-500">{profile.team}</p>}
+            <div className="flex items-center gap-3">
+              <AvatarUpload
+                profile={{ ...profile, avatarUrl }}
+                onUpdate={(url) => setAvatarUrl(url)}
+              />
+              <div>
+                <h2 className="text-lg font-bold text-white">{profile.name}</h2>
+                <p className="text-xs text-zinc-400">{BELT_LABELS[profile.belt]}</p>
+                {profile.team && <p className="text-[10px] text-zinc-500">{profile.team}</p>}
+              </div>
             </div>
             <div className="text-right">
               <p className="text-xl font-bold text-red-500">{profile.totalReps}</p>

@@ -65,6 +65,7 @@ export interface PlayerProfile {
   createdAt: string
   lastTrainingDate: string
   trainingHistory: TrainingSession[]
+  avatarUrl: string
 }
 
 export interface Donation {
@@ -126,7 +127,8 @@ function rowToProfile(row: Record<string, unknown>): PlayerProfile {
     belt: (row.belt as BeltLevel) || 'white',
     createdAt: (row.created_at as string) || new Date().toISOString(),
     lastTrainingDate: (row.last_training_date as string) || new Date().toISOString(),
-    trainingHistory: (row.training_history as TrainingSession[]) || []
+    trainingHistory: (row.training_history as TrainingSession[]) || [],
+    avatarUrl: (row.avatar_url as string) || ''
   }
 }
 
@@ -144,7 +146,8 @@ function profileToRow(profile: PlayerProfile): Record<string, unknown> {
     belt: profile.belt,
     created_at: profile.createdAt,
     last_training_date: profile.lastTrainingDate,
-    training_history: profile.trainingHistory
+    training_history: profile.trainingHistory,
+    avatar_url: profile.avatarUrl || ''
   }
 }
 
@@ -216,7 +219,8 @@ export async function registerUser(
     belt: 'white',
     createdAt: new Date().toISOString(),
     lastTrainingDate: new Date().toISOString(),
-    trainingHistory: []
+    trainingHistory: [],
+    avatarUrl: ''
   }
 
   const { error } = await supabase.from('players').insert(profileToRow(profile))
@@ -365,6 +369,25 @@ export function getRepsToNextBelt(totalReps: number): number {
   const nextBelt = getNextBelt(currentBelt)
   if (!nextBelt) return 0
   return BELT_THRESHOLDS[nextBelt] - totalReps
+}
+
+// Avatar Upload
+export async function uploadAvatar(profileId: string, file: File): Promise<{ success: boolean; url?: string; error?: string }> {
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${profileId}.${fileExt}`
+
+  const { error } = await supabase.storage
+    .from('avatars')
+    .upload(fileName, file, { upsert: true })
+
+  if (error) return { success: false, error: error.message }
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
+  return { success: true, url: data.publicUrl }
+}
+
+export async function updateAvatarUrl(profileId: string, url: string): Promise<void> {
+  await supabase.from('players').update({ avatar_url: url }).eq('id', profileId)
 }
 
 // Tages-Challenge
