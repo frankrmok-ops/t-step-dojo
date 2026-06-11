@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { PlayerProfile, uploadAvatar, updateAvatarUrl } from '@/lib'
 
 interface AvatarUploadProps {
@@ -11,7 +11,6 @@ interface AvatarUploadProps {
 export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -37,45 +36,32 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
 
   return (
     <div className="flex flex-col items-center">
-      {/* Input direkt sichtbar als Label */}
-      <label htmlFor="avatar-input" className="flex flex-col items-center cursor-pointer">
-      {/* Avatar Anzeige */}
-      <div
-        className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-red-600 mb-2"
-      >
-        {profile.avatarUrl ? (
-          <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-            <span className="text-3xl">👤</span>
-          </div>
-        )}
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-          <span className="text-white text-xs font-bold">Ändern</span>
+      <label className="cursor-pointer flex flex-col items-center">
+        <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-red-600 mb-1">
+          {profile.avatarUrl ? (
+            <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-3xl">
+              👤
+            </div>
+          )}
+          {loading && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
         </div>
-        {loading && (
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-      </div>
-
-      <input
-        id="avatar-input"
-        type="file"
-        accept="image/*"
-        capture="user"
-        onChange={handleFileChange}
-        className="hidden"
-      />
-
-      <span className="text-[10px] text-zinc-500">
-        {loading ? 'Wird hochgeladen...' : 'Foto ändern'}
-      </span>
-
-      {error && <p className="text-[10px] text-red-500 mt-1">{error}</p>}
+        <span className="text-[10px] text-zinc-500">
+          {loading ? 'Lädt...' : 'Foto ändern'}
+        </span>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleFileChange}
+          style={{ position: 'absolute', opacity: 0, width: 80, height: 80, cursor: 'pointer' }}
+        />
       </label>
+      {error && <p className="text-[10px] text-red-500 mt-1 text-center">{error}</p>}
     </div>
   )
 }
