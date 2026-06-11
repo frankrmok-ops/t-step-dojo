@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import Cropper from 'react-easy-crop'
+import { useState } from 'react'
 import { PlayerProfile, uploadAvatar, updateAvatarUrl } from '@/lib'
 
 interface AvatarUploadProps {
@@ -9,76 +8,33 @@ interface AvatarUploadProps {
   onUpdate: (newUrl: string) => void
 }
 
-async function getCroppedImg(imageSrc: string, croppedAreaPixels: any): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = 300
-      canvas.height = 300
-      const ctx = canvas.getContext('2d')
-      if (!ctx) { reject(new Error('Canvas nicht verfügbar')); return }
-      ctx.drawImage(
-        image,
-        croppedAreaPixels.x,
-        croppedAreaPixels.y,
-        croppedAreaPixels.width,
-        croppedAreaPixels.height,
-        0, 0, 300, 300
-      )
-      canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob)
-          else reject(new Error('Canvas toBlob fehlgeschlagen'))
-        },
-        'image/jpeg',
-        0.85
-      )
-    }
-    image.onerror = () => reject(new Error('Bild konnte nicht geladen werden'))
-    image.src = imageSrc
-  })
-}
-
 export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [imageSrc, setImageSrc] = useState<string | null>(null)
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+  const [currentFile, setCurrentFile] = useState<File | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setImageSrc(reader.result as string)
-      setError('')
-    }
-    reader.onerror = () => setError('Datei konnte nicht gelesen werden')
-    reader.readAsDataURL(file)
+    setCurrentFile(file)
+    setPreview(URL.createObjectURL(file))
+    setError('')
   }
 
-  const onCropComplete = useCallback((_: any, croppedPixels: any) => {
-    setCroppedAreaPixels(croppedPixels)
-  }, [])
-
   const handleUpload = async () => {
-    if (!imageSrc || !croppedAreaPixels) return
+    if (!currentFile) return
     setLoading(true)
     setError('')
     try {
-      const blob = await getCroppedImg(imageSrc, croppedAreaPixels)
-      const fileName = `avatar-${profile.id}-${Date.now()}.jpg`
-      const file = new File([blob], fileName, { type: 'image/jpeg' })
-      const result = await uploadAvatar(profile.id, file)
+      const result = await uploadAvatar(profile.id, currentFile)
       if (result.success && result.url) {
         await updateAvatarUrl(profile.id, result.url)
         onUpdate(result.url)
-        setImageSrc(null)
+        setPreview(null)
+        setCurrentFile(null)
       } else {
-        setError('Upload Fehler: ' + (result.error || 'unbekannt'))
+        setError('Fehler: ' + (result.error || 'unbekannt'))
       }
     } catch (err: any) {
       setError('Fehler: ' + (err?.message || 'unbekannt'))
@@ -88,47 +44,25 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
 
   return (
     <div className="flex flex-col items-center">
-      {imageSrc && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col">
-          <div className="relative flex-1">
-            <Cropper
-              image={imageSrc}
-              crop={crop}
-              zoom={zoom}
-              aspect={1}
-              cropShape="round"
-              showGrid={false}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onCropComplete={onCropComplete}
-            />
-          </div>
-          <div className="p-4 space-y-3 bg-zinc-900">
-            {error && <p className="text-xs text-red-400 text-center">{error}</p>}
-            <input
-              type="range"
-              min={1}
-              max={3}
-              step={0.1}
-              value={zoom}
-              onChange={(e) => setZoom(Number(e.target.value))}
-              className="w-full accent-red-500"
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setImageSrc(null); setError('') }}
-                className="flex-1 bg-zinc-800 text-zinc-300 py-3 rounded-xl font-bold text-sm"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={handleUpload}
-                disabled={loading}
-                className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold text-sm disabled:opacity-50"
-              >
-                {loading ? 'Lädt...' : 'Speichern'}
-              </button>
-            </div>
+      {/* Vorschau + Bestätigen */}
+      {preview && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6">
+          <img src={preview} alt="Vorschau" className="w-48 h-48 rounded-full object-cover border-4 border-red-600 mb-6" />
+          {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
+          <div className="flex gap-3 w-full max-w-xs">
+            <button
+              onClick={() => { setPreview(null); setCurrentFile(null) }}
+              className="flex-1 bg-zinc-800 text-zinc-300 py-3 rounded-xl font-bold text-sm"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={loading}
+              className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold text-sm disabled:opacity-50"
+            >
+              {loading ? 'Lädt...' : 'Speichern'}
+            </button>
           </div>
         </div>
       )}
@@ -144,7 +78,7 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
         <span className="text-[10px] text-zinc-500">Foto ändern</span>
         <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
       </label>
-      {!imageSrc && error && <p className="text-[10px] text-red-500 mt-1 text-center">{error}</p>}
+      {!preview && error && <p className="text-[10px] text-red-500 mt-1">{error}</p>}
     </div>
   )
 }
