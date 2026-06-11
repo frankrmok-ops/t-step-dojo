@@ -44,7 +44,6 @@ function DualRegulator({
 export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, onSupportersClick, onLeaderboardClick }: DashboardProps) {
   const [showDuels, setShowDuels] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl || '')
-  const [localProfile, setLocalProfile] = useState(profile)
   const [targetReps, setTargetReps] = useState(10)
   const [minSeconds, setMinSeconds] = useState(1)
   const [maxSeconds, setMaxSeconds] = useState(5)
@@ -125,7 +124,6 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
                 profile={{ ...profile, avatarUrl }}
                 onUpdate={(url) => {
                   setAvatarUrl(url)
-                  setLocalProfile(p => ({ ...p, avatarUrl: url }))
                 }}
               />
               <div>
