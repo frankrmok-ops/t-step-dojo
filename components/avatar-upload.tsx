@@ -28,6 +28,7 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
     setError('')
     try {
       const result = await uploadAvatar(profile.id, currentFile)
+      alert('Result: ' + JSON.stringify(result))
       if (result.success && result.url) {
         await updateAvatarUrl(profile.id, result.url)
         onUpdate(result.url)
@@ -37,6 +38,7 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
         setError('Fehler: ' + (result.error || 'unbekannt'))
       }
     } catch (err: any) {
+      alert('Exception: ' + (err?.message || JSON.stringify(err)))
       setError('Fehler: ' + (err?.message || 'unbekannt'))
     }
     setLoading(false)
