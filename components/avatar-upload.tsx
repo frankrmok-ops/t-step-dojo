@@ -13,13 +13,14 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<string | null>(null)
   const [currentFile, setCurrentFile] = useState<File | null>(null)
-  const [uploadedUrl, setUploadedUrl] = useState<string>(profile.avatarUrl || '')
+  const [displayUrl, setDisplayUrl] = useState<string>(profile.avatarUrl || '')
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setCurrentFile(file)
-    setPreview(URL.createObjectURL(file))
+    const objectUrl = URL.createObjectURL(file)
+    setPreview(objectUrl)
     setError('')
   }
 
@@ -31,26 +32,28 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
       const result = await uploadAvatar(profile.id, currentFile)
       if (result.success && result.url) {
         await updateAvatarUrl(profile.id, result.url)
-        onUpdate(result.url + '?t=' + Date.now())
+        const newUrl = result.url + '?t=' + Date.now()
+        setDisplayUrl(newUrl)
+        onUpdate(newUrl)
         setPreview(null)
         setCurrentFile(null)
       } else {
         setError('Fehler: ' + (result.error || 'unbekannt'))
       }
     } catch (err: any) {
-      alert('Exception: ' + (err?.message || JSON.stringify(err)))
       setError('Fehler: ' + (err?.message || 'unbekannt'))
     }
     setLoading(false)
   }
 
+  const avatarSrc = preview || displayUrl
+
   return (
     <div className="flex flex-col items-center">
-      {/* Vorschau + Bestätigen */}
       {preview && (
         <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6">
           <img src={preview} alt="Vorschau" className="w-48 h-48 rounded-full object-cover border-4 border-red-600 mb-6" />
-          {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
+          {error && <p className="text-red-400 text-xs mb-3 text-center">{error}</p>}
           <div className="flex gap-3 w-full max-w-xs">
             <button
               onClick={() => { setPreview(null); setCurrentFile(null) }}
@@ -71,8 +74,13 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
 
       <label className="cursor-pointer flex flex-col items-center">
         <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-red-600 mb-1">
-          {profile.avatarUrl ? (
-            <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+          {avatarSrc ? (
+            <img
+              src={avatarSrc}
+              alt="Avatar"
+              className="w-full h-full object-cover"
+              onError={() => setDisplayUrl('')}
+            />
           ) : (
             <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-3xl">👤</div>
           )}
