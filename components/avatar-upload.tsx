@@ -28,10 +28,9 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
     setError('')
     try {
       const result = await uploadAvatar(profile.id, currentFile)
-      alert('Result: ' + JSON.stringify(result))
       if (result.success && result.url) {
         await updateAvatarUrl(profile.id, result.url)
-        onUpdate(result.url)
+        onUpdate(result.url + '?t=' + Date.now())
         setPreview(null)
         setCurrentFile(null)
       } else {
