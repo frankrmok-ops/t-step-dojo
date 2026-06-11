@@ -57,8 +57,8 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
       } else {
         setError(result.error || 'Upload fehlgeschlagen')
       }
-    } catch (err) {
-      setError('Fehler beim Verarbeiten')
+    } catch (err: any) {
+      setError('Fehler: ' + (err?.message || JSON.stringify(err)))
     }
     setLoading(false)
   }
