@@ -37,10 +37,11 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
 
   return (
     <div className="flex flex-col items-center">
+      {/* Input direkt sichtbar als Label */}
+      <label htmlFor="avatar-input" className="flex flex-col items-center cursor-pointer">
       {/* Avatar Anzeige */}
       <div
-        onClick={() => fileInputRef.current?.click()}
-        className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-red-600 cursor-pointer mb-2"
+        className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-red-600 mb-2"
       >
         {profile.avatarUrl ? (
           <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
@@ -61,21 +62,20 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
       </div>
 
       <input
-        ref={fileInputRef}
+        id="avatar-input"
         type="file"
         accept="image/*"
+        capture="user"
         onChange={handleFileChange}
         className="hidden"
       />
 
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        className="text-[10px] text-zinc-500 hover:text-red-400"
-      >
+      <span className="text-[10px] text-zinc-500">
         {loading ? 'Wird hochgeladen...' : 'Foto ändern'}
-      </button>
+      </span>
 
       {error && <p className="text-[10px] text-red-500 mt-1">{error}</p>}
+      </label>
     </div>
   )
 }
