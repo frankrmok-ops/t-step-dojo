@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PlayerProfile, uploadAvatar, updateAvatarUrl } from '@/lib'
 
 interface AvatarUploadProps {
