@@ -8,6 +8,28 @@ interface AvatarUploadProps {
   onUpdate: (newUrl: string) => void
 }
 
+async function resizeImage(file: File): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const MAX = 400
+      let w = img.width
+      let h = img.height
+      if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX } }
+      else { if (h > MAX) { w = w * MAX / h; h = MAX } }
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, w, h)
+      URL.revokeObjectURL(url)
+      canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.8)
+    }
+    img.src = url
+  })
+}
+
 export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -16,21 +38,23 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Bild zu groß! Max 2MB')
-      return
-    }
-
     setLoading(true)
     setError('')
 
-    const result = await uploadAvatar(profile.id, file)
-    if (result.success && result.url) {
-      await updateAvatarUrl(profile.id, result.url)
-      onUpdate(result.url)
-    } else {
-      setError(result.error || 'Upload fehlgeschlagen')
+    try {
+      const resized = await resizeImage(file)
+      const resizedFile = new File([resized], `${profile.id}.jpg`, { type: 'image/jpeg' })
+      const result = await uploadAvatar(profile.id, resizedFile)
+      if (result.success && result.url) {
+        await updateAvatarUrl(profile.id, result.url)
+        onUpdate(result.url)
+      } else {
+        setError(result.error || 'Upload fehlgeschlagen')
+      }
+    } catch (err) {
+      setError('Fehler beim Verarbeiten des Bildes')
     }
+
     setLoading(false)
   }
 
@@ -56,12 +80,12 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
         </span>
         <input
           type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
+          accept="image/*"
           onChange={handleFileChange}
-          style={{ position: 'absolute', opacity: 0, width: 80, height: 80, cursor: 'pointer' }}
+          className="hidden"
         />
       </label>
-      {error && <p className="text-[10px] text-red-500 mt-1 text-center">{error}</p>}
+      {error && <p className="text-[10px] text-red-500 mt-1 text-center max-w-20">{error}</p>}
     </div>
   )
 }
