@@ -10,16 +10,34 @@ interface AvatarUploadProps {
 }
 
 async function getCroppedImg(imageSrc: string, croppedAreaPixels: any): Promise<Blob> {
-  const image = new Image()
-  image.crossOrigin = 'anonymous'
-  image.src = imageSrc
-  await new Promise((resolve) => { image.onload = resolve })
-  const canvas = document.createElement('canvas')
-  canvas.width = 300
-  canvas.height = 300
-  const ctx = canvas.getContext('2d')!
-  ctx.drawImage(image, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, 300, 300)
-  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.85))
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 300
+      canvas.height = 300
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { reject(new Error('Canvas nicht verfügbar')); return }
+      ctx.drawImage(
+        image,
+        croppedAreaPixels.x,
+        croppedAreaPixels.y,
+        croppedAreaPixels.width,
+        croppedAreaPixels.height,
+        0, 0, 300, 300
+      )
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob)
+          else reject(new Error('Canvas toBlob fehlgeschlagen'))
+        },
+        'image/jpeg',
+        0.85
+      )
+    }
+    image.onerror = () => reject(new Error('Bild konnte nicht geladen werden'))
+    image.src = imageSrc
+  })
 }
 
 export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
@@ -30,11 +48,15 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
   const [zoom, setZoom] = useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null)
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => setImageSrc(reader.result as string)
+    reader.onloadend = () => {
+      setImageSrc(reader.result as string)
+      setError('')
+    }
+    reader.onerror = () => setError('Datei konnte nicht gelesen werden')
     reader.readAsDataURL(file)
   }
 
@@ -48,24 +70,24 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
     setError('')
     try {
       const blob = await getCroppedImg(imageSrc, croppedAreaPixels)
-      const file = new File([blob], `${profile.id}.jpg`, { type: 'image/jpeg' })
+      const fileName = `avatar-${profile.id}-${Date.now()}.jpg`
+      const file = new File([blob], fileName, { type: 'image/jpeg' })
       const result = await uploadAvatar(profile.id, file)
       if (result.success && result.url) {
         await updateAvatarUrl(profile.id, result.url)
         onUpdate(result.url)
         setImageSrc(null)
       } else {
-        setError(result.error || 'Upload fehlgeschlagen')
+        setError('Upload Fehler: ' + (result.error || 'unbekannt'))
       }
     } catch (err: any) {
-      setError('Fehler: ' + (err?.message || JSON.stringify(err)))
+      setError('Fehler: ' + (err?.message || 'unbekannt'))
     }
     setLoading(false)
   }
 
   return (
     <div className="flex flex-col items-center">
-      {/* Crop Modal */}
       {imageSrc && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col">
           <div className="relative flex-1">
@@ -82,6 +104,7 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
             />
           </div>
           <div className="p-4 space-y-3 bg-zinc-900">
+            {error && <p className="text-xs text-red-400 text-center">{error}</p>}
             <input
               type="range"
               min={1}
@@ -93,7 +116,7 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
             />
             <div className="flex gap-3">
               <button
-                onClick={() => setImageSrc(null)}
+                onClick={() => { setImageSrc(null); setError('') }}
                 className="flex-1 bg-zinc-800 text-zinc-300 py-3 rounded-xl font-bold text-sm"
               >
                 Abbrechen
@@ -110,7 +133,6 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
         </div>
       )}
 
-      {/* Avatar Anzeige */}
       <label className="cursor-pointer flex flex-col items-center">
         <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-red-600 mb-1">
           {profile.avatarUrl ? (
@@ -122,7 +144,7 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
         <span className="text-[10px] text-zinc-500">Foto ändern</span>
         <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
       </label>
-      {error && <p className="text-[10px] text-red-500 mt-1 text-center">{error}</p>}
+      {!imageSrc && error && <p className="text-[10px] text-red-500 mt-1 text-center">{error}</p>}
     </div>
   )
 }
