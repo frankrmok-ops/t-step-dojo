@@ -11,6 +11,7 @@ interface AvatarUploadProps {
 
 async function getCroppedImg(imageSrc: string, croppedAreaPixels: any): Promise<Blob> {
   const image = new Image()
+  image.crossOrigin = 'anonymous'
   image.src = imageSrc
   await new Promise((resolve) => { image.onload = resolve })
   const canvas = document.createElement('canvas')
