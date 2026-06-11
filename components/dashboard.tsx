@@ -5,6 +5,7 @@ import { PlayerProfile, BELT_LABELS, getAllDonations, Donation, getRepsToNextBel
 import { supabase } from '../lib/supabase'
 import { CrossedKatanas } from './crossed-katanas'
 import { TrainingCalendar } from './training-calendar'
+import { DuelScreen } from './duel-screen'
 
 interface DashboardProps {
   profile: PlayerProfile
@@ -40,6 +41,7 @@ function DualRegulator({
 }
 
 export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, onSupportersClick, onLeaderboardClick }: DashboardProps) {
+  const [showDuels, setShowDuels] = useState(false)
   const [targetReps, setTargetReps] = useState(10)
   const [minSeconds, setMinSeconds] = useState(1)
   const [maxSeconds, setMaxSeconds] = useState(5)
@@ -85,6 +87,8 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
 
   const decreaseReps = () => setTargetReps(Math.max(5, targetReps - 5))
   const increaseReps = () => setTargetReps(Math.min(100, targetReps + 5))
+
+  if (showDuels) return <DuelScreen profile={profile} onBack={() => setShowDuels(false)} />
 
   return (
     <div className="min-h-screen bg-black overflow-x-hidden">
@@ -137,6 +141,21 @@ export function Dashboard({ profile, onStartTraining, onAdminClick, onLogout, on
             </div>
           </div>
         </div>
+
+        {/* Dojo-Duelle Button */}
+        <button
+          onClick={() => setShowDuels(true)}
+          className="w-full rounded-lg border border-red-900/50 bg-zinc-900/50 p-3 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚔️</span>
+            <div className="text-left">
+              <p className="text-sm font-bold text-white">Dojo-Duelle</p>
+              <p className="text-[10px] text-zinc-400">Fordere andere Kämpfer heraus</p>
+            </div>
+          </div>
+          <span className="text-zinc-500 text-lg">›</span>
+        </button>
 
         {/* Tages-Challenge */}
         <div className={`rounded-lg border p-3 ${isChallengeCompletedToday(profile) ? 'border-green-800 bg-green-950/30' : 'border-red-900/50 bg-zinc-900/50'}`}>

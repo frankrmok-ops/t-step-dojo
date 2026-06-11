@@ -421,6 +421,101 @@ export function getCurrentStreak(profile: PlayerProfile): number {
   return streak
 }
 
+// Duel System
+export interface Duel {
+  id: string
+  challengerId: string
+  challengerName: string
+  opponentId: string
+  opponentName: string
+  challengerReps: number
+  opponentReps: number
+  durationDays: number
+  status: 'pending' | 'active' | 'completed' | 'declined'
+  startedAt: string | null
+  endsAt: string | null
+  createdAt: string
+}
+
+function rowToDuel(row: Record<string, unknown>): Duel {
+  return {
+    id: row.id as string,
+    challengerId: row.challenger_id as string,
+    challengerName: row.challenger_name as string,
+    opponentId: row.opponent_id as string,
+    opponentName: row.opponent_name as string,
+    challengerReps: (row.challenger_reps as number) || 0,
+    opponentReps: (row.opponent_reps as number) || 0,
+    durationDays: row.duration_days as number,
+    status: row.status as Duel['status'],
+    startedAt: row.started_at as string | null,
+    endsAt: row.ends_at as string | null,
+    createdAt: row.created_at as string
+  }
+}
+
+export async function sendDuelChallenge(
+  challenger: PlayerProfile,
+  opponentId: string,
+  opponentName: string,
+  durationDays: number
+): Promise<{ success: boolean; error?: string }> {
+  const duel = {
+    id: generateId(),
+    challenger_id: challenger.id,
+    challenger_name: challenger.name,
+    opponent_id: opponentId,
+    opponent_name: opponentName,
+    challenger_reps: 0,
+    opponent_reps: 0,
+    duration_days: durationDays,
+    status: 'pending',
+    started_at: null,
+    ends_at: null
+  }
+  const { error } = await supabase.from('duels').insert(duel)
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+export async function acceptDuel(duelId: string): Promise<{ success: boolean }> {
+  const now = new Date()
+  const { data } = await supabase.from('duels').select('duration_days').eq('id', duelId).single()
+  if (!data) return { success: false }
+  const endsAt = new Date(now)
+  endsAt.setDate(endsAt.getDate() + data.duration_days)
+  const { error } = await supabase.from('duels').update({
+    status: 'active',
+    started_at: now.toISOString(),
+    ends_at: endsAt.toISOString()
+  }).eq('id', duelId)
+  return { success: !error }
+}
+
+export async function declineDuel(duelId: string): Promise<void> {
+  await supabase.from('duels').update({ status: 'declined' }).eq('id', duelId)
+}
+
+export async function getMyDuels(profileId: string): Promise<Duel[]> {
+  const { data, error } = await supabase
+    .from('duels')
+    .select('*')
+    .or(`challenger_id.eq.${profileId},opponent_id.eq.${profileId}`)
+    .order('created_at', { ascending: false })
+  if (error || !data) return []
+  return data.map(rowToDuel)
+}
+
+export async function updateDuelReps(
+  duelId: string,
+  profileId: string,
+  newReps: number,
+  isChallenger: boolean
+): Promise<void> {
+  const field = isChallenger ? 'challenger_reps' : 'opponent_reps'
+  await supabase.from('duels').update({ [field]: newReps }).eq('id', duelId)
+}
+
 // Donations — Supabase
 export async function getAllDonations(): Promise<Donation[]> {
   const { data, error } = await supabase
