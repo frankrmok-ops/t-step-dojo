@@ -35,6 +35,7 @@ export default function Home() {
     const loadProfile = async () => {
       const cached = getPlayerProfile()
       if (cached) {
+        alert('Cached avatarUrl: ' + (cached.avatarUrl || 'LEER'))
         setProfile(cached)
         setAppState('dashboard')
         // Im Hintergrund frisch laden
