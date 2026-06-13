@@ -29,6 +29,7 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
     setLoading(true)
     setError('')
     try {
+      alert('Datei Größe: ' + currentFile.size + ' Bytes, Typ: ' + currentFile.type)
       const result = await uploadAvatar(profile.id, currentFile)
       if (result.success && result.url) {
         await updateAvatarUrl(profile.id, result.url)
