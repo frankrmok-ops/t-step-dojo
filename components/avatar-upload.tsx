@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { PlayerProfile, uploadAvatar, updateAvatarUrl } from '@/lib'
 
 interface AvatarUploadProps {
@@ -29,7 +29,6 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
     setLoading(true)
     setError('')
     try {
-      alert('Datei Größe: ' + currentFile.size + ' Bytes, Typ: ' + currentFile.type)
       const result = await uploadAvatar(profile.id, currentFile)
       if (result.success && result.url) {
         await updateAvatarUrl(profile.id, result.url)
@@ -48,10 +47,6 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
   }
 
   const avatarSrc = preview || displayUrl
-
-  useEffect(() => {
-    if (displayUrl) alert('displayUrl gesetzt: ' + displayUrl.substring(0, 50))
-  }, [displayUrl])
 
   return (
     <div className="flex flex-col items-center">
