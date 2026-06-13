@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PlayerProfile, getPlayerProfile, logoutUser } from '@/lib'
+import { PlayerProfile, getPlayerProfile, getPlayerProfileAsync, cacheProfile, logoutUser } from '@/lib'
 import { AuthScreen } from '@/components/auth-screen'
 import { Dashboard } from '@/components/dashboard'
 import { TrainingMode } from '@/components/training-mode'
@@ -32,13 +32,22 @@ export default function Home() {
   const [showAdmin, setShowAdmin] = useState(false)
 
   useEffect(() => {
-    const existingProfile = getPlayerProfile()
-    if (existingProfile) {
-      setProfile(existingProfile)
-      setAppState('dashboard')
-    } else {
-      setAppState('auth')
+    const loadProfile = async () => {
+      const cached = getPlayerProfile()
+      if (cached) {
+        setProfile(cached)
+        setAppState('dashboard')
+        // Im Hintergrund frisch laden
+        const fresh = await getPlayerProfileAsync()
+        if (fresh) {
+          setProfile(fresh)
+          cacheProfile(fresh)
+        }
+      } else {
+        setAppState('auth')
+      }
     }
+    loadProfile()
   }, [])
 
   const handleLogin = (newProfile: any) => {
