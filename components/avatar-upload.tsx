@@ -48,6 +48,10 @@ export function AvatarUpload({ profile, onUpdate }: AvatarUploadProps) {
 
   const avatarSrc = preview || displayUrl
 
+  useEffect(() => {
+    if (displayUrl) alert('displayUrl gesetzt: ' + displayUrl.substring(0, 50))
+  }, [displayUrl])
+
   return (
     <div className="flex flex-col items-center">
       {preview && (
