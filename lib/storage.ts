@@ -396,10 +396,12 @@ export async function uploadAvatar(profileId: string, file: File): Promise<{ suc
 }
 
 export async function updateAvatarUrl(profileId: string, url: string): Promise<void> {
-  await supabase.from('players').update({ avatar_url: url }).eq('id', profileId)
+  // URL ohne Query-Parameter speichern (Cache-Buster wird beim Anzeigen angehängt)
+  const cleanUrl = url.split('?')[0]
+  await supabase.from('players').update({ avatar_url: cleanUrl }).eq('id', profileId)
   const cached = getPlayerProfile()
   if (cached) {
-    cacheProfile({ ...cached, avatarUrl: url })
+    cacheProfile({ ...cached, avatarUrl: cleanUrl })
   }
 }
 
